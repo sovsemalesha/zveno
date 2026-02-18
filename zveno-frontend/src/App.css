@@ -1,10 +1,12 @@
+/* FIX: убираем Vite-ограничение ширины приложения */
 #root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+  width: 100%;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
 }
 
+/* Всё остальное оставляем как было (из шаблона Vite) */
 .logo {
   height: 6em;
   padding: 1.5em;

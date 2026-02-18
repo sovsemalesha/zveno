@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Socket } from "socket.io-client";
 import { api, setToken } from "./api";
-import { connectSocket, getSocket } from "./socket";
+import { connectSocket } from "./socket";
 
 type ServerDto = { id: string; name: string };
 type ChannelDto = { id: string; name: string };
@@ -9,459 +9,544 @@ type MessageDto = {
   id: string;
   content: string;
   userId: string;
-  createdAt?: string;
   user?: { username?: string };
 };
 
-type AuthMode = "login" | "register";
-
 const LS_TOKEN = "zveno:token";
-const LS_EMAIL = "zveno:email";
-const LS_SERVER = "zveno:selectedServer";
-const LS_CHANNEL = "zveno:selectedChannel";
 
 function App() {
-  // ---------------- AUTH ----------------
-  const [mode, setMode] = useState<AuthMode>("login");
-  const [email, setEmail] = useState(() => localStorage.getItem(LS_EMAIL) || "");
+  const [token, setJwt] = useState(() => localStorage.getItem(LS_TOKEN) || "");
+
+  const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [mode, setMode] = useState<"login" | "register">("login");
 
-  const [token, setJwt] = useState(() => localStorage.getItem(LS_TOKEN) || "");
-  const [authLoading, setAuthLoading] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
-
-  // ---------------- APP STATE ----------------
   const [servers, setServers] = useState<ServerDto[]>([]);
-  const [selectedServer, setSelectedServer] = useState<ServerDto | null>(null);
-
   const [channels, setChannels] = useState<ChannelDto[]>([]);
+  const [selectedServer, setSelectedServer] = useState<ServerDto | null>(null);
   const [selectedChannel, setSelectedChannel] = useState<ChannelDto | null>(null);
 
   const [messages, setMessages] = useState<MessageDto[]>([]);
+  const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   const [input, setInput] = useState("");
 
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [joinCode, setJoinCode] = useState("");
+
   const socketRef = useRef<Socket | null>(null);
-  const joinedChannelIdRef = useRef<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  const canSubmitAuth = useMemo(() => {
-    if (authLoading) return false;
-    if (!email.trim() || !password) return false;
-    if (mode === "register" && !username.trim()) return false;
-    return true;
-  }, [authLoading, email, password, username, mode]);
-
-  // ---------------- BOOTSTRAP WITH TOKEN ----------------
   useEffect(() => {
     if (!token) return;
-
     setToken(token);
-    void loadServers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    loadServers();
   }, [token]);
 
-  // ---------------- API HELPERS ----------------
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
   const loadServers = async () => {
-    const serverRes = await api.get<ServerDto[]>("/servers");
-    setServers(serverRes.data);
-
-    // восстановим выбранный сервер (если он ещё существует)
-    const savedServerId = localStorage.getItem(LS_SERVER);
-    if (savedServerId) {
-      const s = serverRes.data.find((x) => x.id === savedServerId) || null;
-      if (s) {
-        await selectServer(s, { restoreChannel: true });
-      }
-    }
+    const res = await api.get<ServerDto[]>("/servers");
+    setServers(res.data);
   };
 
-  const normalizeAuthError = (err: any): string => {
-    const status = err?.response?.status;
-    const message = err?.response?.data?.message;
-
-    if (status === 401) return "Неверный email или пароль";
-    if (status === 409) return typeof message === "string" ? message : "Email уже занят";
-    if (status === 400) {
-      if (Array.isArray(message)) return message.join("\n");
-      if (typeof message === "string") return message;
-      return "Проверь данные формы";
-    }
-
-    return "Ошибка сервера. Попробуй ещё раз.";
-  };
-
-  // ---------------- AUTH ACTIONS ----------------
   const doLogin = async () => {
-    setAuthError(null);
-    setAuthLoading(true);
-    try {
-      const res = await api.post("/auth/login", {
-        email: email.trim(),
-        password,
-      });
-
-      const t: string = res.data.access_token;
-      localStorage.setItem(LS_TOKEN, t);
-      localStorage.setItem(LS_EMAIL, email.trim());
-      setJwt(t);
-      setToken(t);
-      await loadServers();
-    } catch (e) {
-      setAuthError(normalizeAuthError(e));
-    } finally {
-      setAuthLoading(false);
-    }
+    const res = await api.post("/auth/login", { email, password });
+    const t = res.data.access_token;
+    localStorage.setItem(LS_TOKEN, t);
+    setJwt(t);
   };
 
   const doRegister = async () => {
-    setAuthError(null);
-    setAuthLoading(true);
-    try {
-      // backend возвращает access_token + user
-      const res = await api.post("/auth/register", {
-        email: email.trim(),
-        username: username.trim(),
-        password,
-      });
-
-      const t: string = res.data.access_token;
-      localStorage.setItem(LS_TOKEN, t);
-      localStorage.setItem(LS_EMAIL, email.trim());
-      setJwt(t);
-      setToken(t);
-      await loadServers();
-    } catch (e) {
-      setAuthError(normalizeAuthError(e));
-    } finally {
-      setAuthLoading(false);
-    }
+    const res = await api.post("/auth/register", {
+      email,
+      username,
+      password,
+    });
+    const t = res.data.access_token;
+    localStorage.setItem(LS_TOKEN, t);
+    setJwt(t);
   };
 
   const logout = () => {
+    socketRef.current?.disconnect();
+    socketRef.current = null;
     localStorage.removeItem(LS_TOKEN);
     setJwt("");
-    setToken("");
-
-    // чистим сокет и состояние
-    try {
-      socketRef.current?.disconnect();
-    } catch {
-      // ignore
-    }
-    socketRef.current = null;
-    joinedChannelIdRef.current = null;
-
-    setServers([]);
-    setChannels([]);
     setMessages([]);
+    setOnlineUsers([]);
     setSelectedServer(null);
     setSelectedChannel(null);
   };
 
-  // ---------------- SELECT SERVER ----------------
-  const selectServer = async (server: ServerDto, opts?: { restoreChannel?: boolean }) => {
+  const selectServer = async (server: ServerDto) => {
     setSelectedServer(server);
-    localStorage.setItem(LS_SERVER, server.id);
-
-    setSelectedChannel(null);
-    setMessages([]);
-    setChannels([]);
-
     const res = await api.get<ChannelDto[]>(`/channels/${server.id}`);
     setChannels(res.data);
-
-    if (opts?.restoreChannel) {
-      const savedChannelId = localStorage.getItem(LS_CHANNEL);
-      if (savedChannelId) {
-        const ch = res.data.find((x) => x.id === savedChannelId);
-        if (ch) {
-          await selectChannel(ch);
-        }
-      }
-    }
   };
 
-  // ---------------- SELECT CHANNEL ----------------
   const selectChannel = async (channel: ChannelDto) => {
     setSelectedChannel(channel);
-    localStorage.setItem(LS_CHANNEL, channel.id);
 
-    // 1) история
     const history = await api.get<MessageDto[]>(`/messages/${channel.id}`);
     setMessages(history.data);
 
-    // 2) сокет: подключаем 1 раз, дальше только join/leave
-    let socket = socketRef.current;
-    if (!socket) {
-      socket = connectSocket(token);
-      socketRef.current = socket;
+    socketRef.current?.disconnect();
+    const socket = connectSocket(token);
+    socketRef.current = socket;
 
-      socket.on("message:new", (msg: MessageDto) => {
-        setMessages((prev) => [...prev, msg]);
-      });
-    }
+    socket.on("message:new", (msg: MessageDto) => {
+      setMessages((prev) => [...prev, msg]);
+    });
 
-    // leave предыдущий канал
-    const prevId = joinedChannelIdRef.current;
-    if (prevId && prevId !== channel.id) {
-      socket.emit("channel:leave", { channelId: prevId });
-    }
+    socket.on("presence:update", (users: { username: string }[]) => {
+      setOnlineUsers(users.map((u) => u.username));
+    });
 
     socket.emit("channel:join", { channelId: channel.id });
-    joinedChannelIdRef.current = channel.id;
   };
 
-  // ---------------- SEND MESSAGE ----------------
   const sendMessage = () => {
-    const content = input.trim();
-    if (!content) return;
-    if (!selectedChannel) return;
+    if (!input.trim() || !selectedChannel) return;
 
-    const socket = getSocket();
-    socket?.emit("message:send", {
+    socketRef.current?.emit("message:send", {
       channelId: selectedChannel.id,
-      content,
+      content: input.trim(),
     });
+
     setInput("");
   };
 
-  // ---------------- UI: AUTH ----------------
+  const createInvite = async () => {
+    if (!selectedServer) return;
+    const res = await api.post(`/invites/${selectedServer.id}`);
+    setInviteCode(res.data.code);
+    setShowInviteModal(true);
+  };
+
+  const joinServer = async () => {
+    if (!joinCode.trim()) return;
+    await api.post(`/invites/join/${joinCode.trim()}`);
+    setShowJoinModal(false);
+    setJoinCode("");
+    await loadServers();
+  };
+
+  // ================= AUTH =================
+
   if (!token) {
     return (
-      <div style={{ padding: 40, maxWidth: 420 }}>
-        <h2 style={{ marginBottom: 8 }}>Zveno</h2>
+      <div style={authWrapper}>
+        <div style={authBox}>
+          <h2>Zveno</h2>
 
-        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-          <button
-            onClick={() => {
-              setMode("login");
-              setAuthError(null);
-            }}
-            disabled={authLoading}
-            style={{
-              padding: "8px 12px",
-              background: mode === "login" ? "#5865f2" : "#2f3136",
-              color: "white",
-              border: "none",
-              borderRadius: 8,
-              cursor: authLoading ? "not-allowed" : "pointer",
-            }}
-          >
-            Login
-          </button>
-          <button
-            onClick={() => {
-              setMode("register");
-              setAuthError(null);
-            }}
-            disabled={authLoading}
-            style={{
-              padding: "8px 12px",
-              background: mode === "register" ? "#5865f2" : "#2f3136",
-              color: "white",
-              border: "none",
-              borderRadius: 8,
-              cursor: authLoading ? "not-allowed" : "pointer",
-            }}
-          >
-            Register
-          </button>
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span style={{ fontSize: 12, opacity: 0.8 }}>Email</span>
-            <input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-              placeholder="user@zveno.ru"
-              style={{ padding: 10, borderRadius: 8, border: "1px solid #ccc" }}
-            />
-          </label>
+          <input
+            style={inputStyle}
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
 
           {mode === "register" && (
-            <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <span style={{ fontSize: 12, opacity: 0.8 }}>Username</span>
-              <input
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                autoComplete="username"
-                placeholder="nickname"
-                style={{ padding: 10, borderRadius: 8, border: "1px solid #ccc" }}
-              />
-            </label>
-          )}
-
-          <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span style={{ fontSize: 12, opacity: 0.8 }}>Password</span>
             <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete={mode === "login" ? "current-password" : "new-password"}
-              placeholder={mode === "register" ? "минимум 6 символов" : "password"}
-              style={{ padding: 10, borderRadius: 8, border: "1px solid #ccc" }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && canSubmitAuth) {
-                  void (mode === "login" ? doLogin() : doRegister());
-                }
-              }}
+              style={inputStyle}
+              placeholder="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
             />
-          </label>
-
-          {authError && (
-            <div
-              style={{
-                whiteSpace: "pre-wrap",
-                color: "#b00020",
-                background: "#ffe6ea",
-                padding: 10,
-                borderRadius: 8,
-                border: "1px solid #f5b6c2",
-              }}
-            >
-              {authError}
-            </div>
           )}
+
+          <input
+            type="password"
+            style={inputStyle}
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
 
           <button
-            onClick={() => void (mode === "login" ? doLogin() : doRegister())}
-            disabled={!canSubmitAuth}
-            style={{
-              padding: 12,
-              background: canSubmitAuth ? "#5865f2" : "#9aa0f5",
-              color: "white",
-              border: "none",
-              borderRadius: 10,
-              cursor: canSubmitAuth ? "pointer" : "not-allowed",
-            }}
+            style={primaryBtn}
+            onClick={mode === "login" ? doLogin : doRegister}
           >
-            {authLoading ? "Loading..." : mode === "login" ? "Login" : "Create account"}
+            {mode === "login" ? "Login" : "Register"}
           </button>
+
+          <div
+            style={{ cursor: "pointer", opacity: 0.8 }}
+            onClick={() =>
+              setMode(mode === "login" ? "register" : "login")
+            }
+          >
+            {mode === "login"
+              ? "No account? Register"
+              : "Have account? Login"}
+          </div>
         </div>
       </div>
     );
   }
 
-  // ---------------- UI: APP ----------------
+  // ================= MAIN =================
+
   return (
-    <div style={{ display: "flex", height: "100vh" }}>
+    <div style={layout}>
       {/* SERVERS */}
-      <div style={{ width: 140, background: "#2f3136", color: "white", padding: 10 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h4 style={{ margin: 0 }}>Servers</h4>
-          <button
-            onClick={logout}
+      <div style={serverBar}>
+        {servers.map((s) => (
+          <div
+            key={s.id}
             style={{
-              padding: "6px 8px",
-              background: "transparent",
-              color: "white",
-              border: "1px solid rgba(255,255,255,0.25)",
-              borderRadius: 8,
-              cursor: "pointer",
+              ...serverIcon,
+              background:
+                selectedServer?.id === s.id ? "#5865f2" : "#2b2d31",
             }}
-            title="Logout"
+            onClick={() => selectServer(s)}
           >
-            ↩
-          </button>
-        </div>
-        <div style={{ marginTop: 10 }}>
-          {servers.map((s) => (
-            <div
-              key={s.id}
-              style={{
-                padding: 10,
-                borderRadius: 10,
-                cursor: "pointer",
-                background: selectedServer?.id === s.id ? "#5865f2" : "transparent",
-              }}
-              onClick={() => void selectServer(s)}
-            >
-              {s.name}
-            </div>
-          ))}
-          {!servers.length && <div style={{ opacity: 0.7, marginTop: 10 }}>No servers</div>}
+            {s.name[0]}
+          </div>
+        ))}
+
+        <div style={{ marginTop: "auto" }}>
+          <div style={joinBtn} onClick={() => setShowJoinModal(true)}>
+            Join
+          </div>
+          <div style={logoutBtn} onClick={logout}>
+            Logout
+          </div>
         </div>
       </div>
 
       {/* CHANNELS */}
-      <div style={{ width: 240, background: "#202225", color: "white", padding: 10 }}>
-        <h4 style={{ margin: 0 }}>Channels</h4>
+      <div style={channelBar}>
+        <div style={{ display: "flex", justifyContent: "space-between" }}>
+          <div>{selectedServer?.name || "Channels"}</div>
+          {selectedServer && (
+            <button style={primaryBtnSmall} onClick={createInvite}>
+              Invite
+            </button>
+          )}
+        </div>
+
         <div style={{ marginTop: 10 }}>
           {channels.map((c) => (
             <div
               key={c.id}
               style={{
-                padding: 10,
-                borderRadius: 10,
-                cursor: "pointer",
-                background: selectedChannel?.id === c.id ? "#5865f2" : "transparent",
+                ...channelItem,
+                background:
+                  selectedChannel?.id === c.id
+                    ? "#404249"
+                    : "transparent",
               }}
-              onClick={() => void selectChannel(c)}
+              onClick={() => selectChannel(c)}
             >
-              #{c.name}
+              # {c.name}
             </div>
           ))}
-          {!selectedServer && <div style={{ opacity: 0.7, marginTop: 10 }}>Select a server</div>}
-          {selectedServer && !channels.length && (
-            <div style={{ opacity: 0.7, marginTop: 10 }}>No channels</div>
-          )}
         </div>
       </div>
 
       {/* CHAT */}
-      <div style={{ flex: 1, padding: 20, display: "flex", flexDirection: "column" }}>
-        <h3 style={{ marginTop: 0 }}>{selectedChannel?.name || "Select channel"}</h3>
+      <div style={chatArea}>
+        <div style={chatHeader}>
+          {selectedChannel?.name || "Select channel"}
+        </div>
 
-        <div
-          style={{
-            flex: 1,
-            border: "1px solid #ddd",
-            borderRadius: 12,
-            overflowY: "auto",
-            marginBottom: 10,
-            padding: 12,
-            background: "white",
-          }}
-        >
+        <div style={messagesArea}>
           {messages.map((m) => (
-            <div key={m.id} style={{ marginBottom: 6 }}>
-              <b>{m.user?.username || m.userId}</b>: {m.content}
+            <div key={m.id} style={messageRow}>
+              <div style={avatar}>
+                {(m.user?.username || m.userId)[0]}
+              </div>
+              <div>
+                <div style={{ fontWeight: 600 }}>
+                  {m.user?.username || "Unknown"}
+                </div>
+                <div>{m.content}</div>
+              </div>
             </div>
           ))}
-          {!selectedChannel && <div style={{ opacity: 0.7 }}>Выбери канал слева</div>}
+          <div ref={messagesEndRef} />
         </div>
 
         {selectedChannel && (
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={inputBar}>
             <input
+              style={chatInput}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Type message..."
-              style={{ flex: 1, padding: 12, borderRadius: 10, border: "1px solid #ccc" }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") sendMessage();
-              }}
+              onKeyDown={(e) => e.key === "Enter" && sendMessage()}
             />
-            <button
-              onClick={sendMessage}
-              style={{
-                padding: "12px 16px",
-                background: "#5865f2",
-                color: "white",
-                border: "none",
-                borderRadius: 10,
-                cursor: "pointer",
-              }}
-            >
+            <button style={primaryBtn} onClick={sendMessage}>
               Send
             </button>
           </div>
         )}
       </div>
+
+      {/* ONLINE */}
+      <div style={onlineBar}>
+        <div style={{ fontWeight: 600, marginBottom: 10 }}>
+          Online
+        </div>
+        {onlineUsers.map((u) => (
+          <div key={u} style={onlineItem}>
+            <div style={onlineDot}></div>
+            {u}
+          </div>
+        ))}
+      </div>
+
+      {/* INVITE MODAL */}
+      {showInviteModal && (
+        <Modal onClose={() => setShowInviteModal(false)}>
+          <h3>Invite Code</h3>
+          <div style={{ margin: "10px 0", fontSize: 18 }}>
+            {inviteCode}
+          </div>
+          <button
+            style={primaryBtn}
+            onClick={() => {
+              navigator.clipboard.writeText(inviteCode || "");
+            }}
+          >
+            Copy
+          </button>
+        </Modal>
+      )}
+
+      {/* JOIN MODAL */}
+      {showJoinModal && (
+        <Modal onClose={() => setShowJoinModal(false)}>
+          <h3>Join Server</h3>
+          <input
+            style={inputStyle}
+            value={joinCode}
+            onChange={(e) => setJoinCode(e.target.value)}
+            placeholder="Enter invite code"
+          />
+          <button style={primaryBtn} onClick={joinServer}>
+            Join
+          </button>
+        </Modal>
+      )}
     </div>
   );
 }
 
 export default App;
+
+/* ================= COMPONENTS ================= */
+
+function Modal({
+  children,
+  onClose,
+}: {
+  children: React.ReactNode;
+  onClose: () => void;
+}) {
+  return (
+    <div style={modalOverlay} onClick={onClose}>
+      <div style={modalBox} onClick={(e) => e.stopPropagation()}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/* ================= STYLES ================= */
+
+const layout = {
+  display: "flex",
+  height: "100vh",
+  background: "#313338",
+  color: "white",
+  fontFamily: "sans-serif",
+};
+
+const serverBar = {
+  width: 80,
+  background: "#1e1f22",
+  padding: 10,
+  display: "flex",
+  flexDirection: "column" as const,
+};
+
+const serverIcon = {
+  height: 50,
+  width: 50,
+  borderRadius: "50%",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  marginBottom: 10,
+  cursor: "pointer",
+};
+
+const joinBtn = {
+  padding: 6,
+  background: "#3ba55c",
+  borderRadius: 6,
+  textAlign: "center" as const,
+  marginBottom: 6,
+  cursor: "pointer",
+};
+
+const logoutBtn = {
+  padding: 6,
+  background: "#f04747",
+  borderRadius: 6,
+  textAlign: "center" as const,
+  cursor: "pointer",
+};
+
+const channelBar = {
+  width: 240,
+  background: "#2b2d31",
+  padding: 15,
+};
+
+const channelItem = {
+  padding: "6px 10px",
+  borderRadius: 6,
+  cursor: "pointer",
+  marginBottom: 4,
+};
+
+const chatArea = {
+  flex: 1,
+  display: "flex",
+  flexDirection: "column" as const,
+};
+
+const chatHeader = {
+  padding: 15,
+  borderBottom: "1px solid #232428",
+};
+
+const messagesArea = {
+  flex: 1,
+  overflowY: "auto" as const,
+  padding: 15,
+};
+
+const messageRow = {
+  display: "flex",
+  gap: 10,
+  marginBottom: 12,
+};
+
+const avatar = {
+  width: 36,
+  height: 36,
+  borderRadius: "50%",
+  background: "#5865f2",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontWeight: "bold",
+};
+
+const inputBar = {
+  padding: 15,
+  borderTop: "1px solid #232428",
+  display: "flex",
+  gap: 10,
+};
+
+const chatInput = {
+  flex: 1,
+  padding: 10,
+  borderRadius: 8,
+  border: "none",
+  background: "#1e1f22",
+  color: "white",
+};
+
+const onlineBar = {
+  width: 200,
+  background: "#2b2d31",
+  padding: 15,
+};
+
+const onlineItem = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  marginBottom: 6,
+};
+
+const onlineDot = {
+  width: 8,
+  height: 8,
+  borderRadius: "50%",
+  background: "#3ba55c",
+};
+
+const authWrapper = {
+  height: "100vh",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  background: "#313338",
+};
+
+const authBox = {
+  width: 380,
+  background: "#2b2d31",
+  padding: 30,
+  borderRadius: 12,
+  display: "flex",
+  flexDirection: "column" as const,
+  gap: 12,
+};
+
+const inputStyle = {
+  padding: 10,
+  borderRadius: 8,
+  border: "none",
+  background: "#1e1f22",
+  color: "white",
+};
+
+const primaryBtn = {
+  padding: 10,
+  borderRadius: 8,
+  border: "none",
+  background: "#5865f2",
+  color: "white",
+  cursor: "pointer",
+};
+
+const primaryBtnSmall = {
+  padding: "4px 8px",
+  borderRadius: 6,
+  border: "none",
+  background: "#5865f2",
+  color: "white",
+  cursor: "pointer",
+};
+
+const modalOverlay = {
+  position: "fixed" as const,
+  inset: 0,
+  background: "rgba(0,0,0,0.6)",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+};
+
+const modalBox = {
+  background: "#2b2d31",
+  padding: 20,
+  borderRadius: 10,
+  width: 300,
+  display: "flex",
+  flexDirection: "column" as const,
+  gap: 10,
+};

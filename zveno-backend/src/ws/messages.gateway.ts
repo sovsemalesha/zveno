@@ -23,10 +23,9 @@ export class MessagesGateway {
   constructor(
     private readonly jwtService: JwtService,
     private readonly messageService: MessageService,
-    private readonly prisma: PrismaService, // ✅
+    private readonly prisma: PrismaService,
   ) {}
 
-  /** 1) Проверяем JWT один раз и кладём userId в socket.data */
   private authSocket(socket: Socket): string {
     const tokenFromAuth = socket.handshake.auth?.token as string | undefined
     const authHeader = socket.handshake.headers?.authorization as string | undefined
@@ -49,7 +48,6 @@ export class MessagesGateway {
     return payload.sub
   }
 
-  /** 2) Проверяем: канал существует + юзер состоит в сервере канала */
   private async assertChannelAccess(channelId: string, userId: string) {
     const channel = await this.prisma.channel.findUnique({
       where: { id: channelId },
@@ -59,7 +57,7 @@ export class MessagesGateway {
     if (!channel) throw new WsException('CHANNEL_NOT_FOUND')
 
     const member = await this.prisma.serverMember.findUnique({
-      where: { userId_serverId: { userId, serverId: channel.serverId } }, // ✅ благодаря @@unique
+      where: { userId_serverId: { userId, serverId: channel.serverId } },
       select: { id: true, role: true },
     })
 
@@ -68,11 +66,10 @@ export class MessagesGateway {
     return { channel, member }
   }
 
-  /** (Опционально) можно отключать сразу при неверном токене */
   handleConnection(socket: Socket) {
     try {
       this.authSocket(socket)
-    } catch (e) {
+    } catch {
       socket.disconnect(true)
     }
   }
@@ -87,18 +84,25 @@ export class MessagesGateway {
     await this.assertChannelAccess(body.channelId, userId)
 
     await socket.join(body.channelId)
-    return { ok: true }
-  }
 
-  @SubscribeMessage('channel:leave')
-  async leaveChannel(
-    @MessageBody() body: { channelId: string },
-    @ConnectedSocket() socket: Socket,
-  ) {
-    const userId = (socket.data.userId as string) || this.authSocket(socket)
+    // 🔥 Обновляем presence
+    const sockets = await this.server.in(body.channelId).fetchSockets()
 
-    // leave разрешаем даже без membership-чека (можно оставить как есть)
-    await socket.leave(body.channelId)
+    const users = await Promise.all(
+      sockets.map(async (s) => {
+        const user = await this.prisma.user.findUnique({
+          where: { id: s.data.userId },
+          select: { username: true },
+        })
+        return user
+      }),
+    )
+
+    this.server.to(body.channelId).emit(
+      'presence:update',
+      users.filter(Boolean),
+    )
+
     return { ok: true }
   }
 
@@ -115,9 +119,29 @@ export class MessagesGateway {
 
     await this.assertChannelAccess(body.channelId, userId)
 
-    const msg = await this.messageService.create(content, body.channelId, userId)
+    // 🔥 ВАЖНО: создаём сообщение с include user
+    const msg = await this.prisma.message.create({
+      data: {
+        content,
+        channelId: body.channelId,
+        userId,
+      },
+      include: {
+        user: {
+          select: { username: true },
+        },
+      },
+    })
 
-    this.server.to(body.channelId).emit('message:new', msg)
-    return { ok: true, messageId: msg.id }
+    this.server.to(body.channelId).emit('message:new', {
+      id: msg.id,
+      content: msg.content,
+      userId: msg.userId,
+      user: {
+        username: msg.user.username,
+      },
+    })
+
+    return { ok: true }
   }
 }

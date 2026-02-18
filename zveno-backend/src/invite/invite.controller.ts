@@ -1,25 +1,25 @@
-import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common'
+import { Controller, Post, Param, UseGuards, Req } from '@nestjs/common'
 import { InviteService } from './invite.service'
 import { JwtAuthGuard } from '../auth/jwt-auth.guard'
 
 @Controller('invites')
 @UseGuards(JwtAuthGuard)
 export class InviteController {
-  constructor(private inviteService: InviteService) {}
+  constructor(private readonly inviteService: InviteService) {}
 
-  @Post('create')
+  @Post(':serverId')
   create(
-    @Body() body: { serverId: string },
+    @Param('serverId') serverId: string,
     @Req() req: any,
   ) {
-    return this.inviteService.create(body.serverId, req.user.userId)
+    return this.inviteService.create(serverId, req.user.userId)
   }
 
-  @Post('join')
+  @Post('join/:code')
   join(
-    @Body() body: { code: string },
+    @Param('code') code: string,
     @Req() req: any,
   ) {
-    return this.inviteService.joinByCode(body.code, req.user.userId)
+    return this.inviteService.joinByCode(code, req.user.userId)
   }
 }
