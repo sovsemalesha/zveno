@@ -13,4 +13,27 @@ model User {
   username  String
   password  String
   createdAt DateTime @default(now())
+
+  memberships ServerMember[]
+
+}
+model Server {
+  id        String         @id @default(uuid())
+  name      String
+  createdAt DateTime       @default(now())
+
+  members   ServerMember[]
+}
+
+model ServerMember {
+  id        String   @id @default(uuid())
+  userId    String
+  serverId  String
+  role      String   @default("member")
+  joinedAt  DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+  server    Server   @relation(fields: [serverId], references: [id])
+
+  @@unique([userId, serverId])
 }
