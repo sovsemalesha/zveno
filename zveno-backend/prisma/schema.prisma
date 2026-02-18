@@ -26,6 +26,8 @@ model Server {
 
   members   ServerMember[]
   channels Channel[]
+  invites Invite[]
+
 
 }
 
@@ -65,4 +67,16 @@ model Message {
 
   user      User     @relation(fields: [userId], references: [id])
   channel   Channel  @relation(fields: [channelId], references: [id])
+}
+
+model Invite {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  serverId  String
+  createdAt DateTime @default(now())
+  expiresAt DateTime?
+  maxUses   Int?
+  uses      Int      @default(0)
+
+  server    Server   @relation(fields: [serverId], references: [id])
 }
