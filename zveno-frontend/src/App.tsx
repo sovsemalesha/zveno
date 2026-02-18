@@ -13,6 +13,8 @@ type MessageDto = {
 };
 
 const LS_TOKEN = "zveno:token";
+const LS_SERVER = "zveno:selectedServer";
+const LS_CHANNEL = "zveno:selectedChannel";
 
 function App() {
   const [token, setJwt] = useState(() => localStorage.getItem(LS_TOKEN) || "");
@@ -37,71 +39,170 @@ function App() {
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [joinCode, setJoinCode] = useState("");
 
+  const [showCreateServerModal, setShowCreateServerModal] = useState(false);
+  const [newServerName, setNewServerName] = useState("");
+
   const socketRef = useRef<Socket | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  // контейнер сообщений (скролл)
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // чтобы не восстанавливать состояние несколько раз
+  const restoredOnceRef = useRef(false);
 
   useEffect(() => {
     if (!token) return;
     setToken(token);
-    loadServers();
+    void loadServers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  // ---------- SCROLL HELPERS ----------
+  const scrollToBottom = () => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  };
 
+  const isUserAtBottom = () => {
+    const el = messagesContainerRef.current;
+    if (!el) return true;
+    const threshold = 60;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+  };
+
+  const scrollToBottomAfterPaint = () => {
+    // 2 тика: сначала React отрисует, потом браузер посчитает scrollHeight
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        scrollToBottom();
+      });
+    });
+  };
+
+  // ---------- DATA ----------
   const loadServers = async () => {
     const res = await api.get<ServerDto[]>("/servers");
     setServers(res.data);
+
+    // восстановление сервера/канала один раз после загрузки серверов
+    if (restoredOnceRef.current) return;
+    restoredOnceRef.current = true;
+
+    const savedServerId = localStorage.getItem(LS_SERVER);
+    if (!savedServerId) return;
+
+    const srv = res.data.find((s) => s.id === savedServerId) || null;
+    if (!srv) return;
+
+    await selectServer(srv, { restoreChannel: true });
   };
 
+  // ---------- AUTH ----------
   const doLogin = async () => {
     const res = await api.post("/auth/login", { email, password });
-    const t = res.data.access_token;
+    const t = res.data.access_token as string;
     localStorage.setItem(LS_TOKEN, t);
     setJwt(t);
   };
 
   const doRegister = async () => {
-    const res = await api.post("/auth/register", {
-      email,
-      username,
-      password,
-    });
-    const t = res.data.access_token;
+    const res = await api.post("/auth/register", { email, username, password });
+    const t = res.data.access_token as string;
     localStorage.setItem(LS_TOKEN, t);
     setJwt(t);
   };
 
   const logout = () => {
-    socketRef.current?.disconnect();
+    try {
+      socketRef.current?.disconnect();
+    } catch {
+      // ignore
+    }
     socketRef.current = null;
+
     localStorage.removeItem(LS_TOKEN);
+    localStorage.removeItem(LS_SERVER);
+    localStorage.removeItem(LS_CHANNEL);
+
+    restoredOnceRef.current = false;
+
     setJwt("");
     setMessages([]);
     setOnlineUsers([]);
+    setServers([]);
+    setChannels([]);
     setSelectedServer(null);
     setSelectedChannel(null);
+    setInput("");
   };
 
-  const selectServer = async (server: ServerDto) => {
+  // ---------- SERVERS ----------
+  const createServer = async () => {
+    const name = newServerName.trim();
+    if (!name) return;
+
+    await api.post("/servers", { name });
+
+    setShowCreateServerModal(false);
+    setNewServerName("");
+    restoredOnceRef.current = false; // можно восстановить заново при перезагрузке списка
+    await loadServers();
+  };
+
+  const selectServer = async (
+    server: ServerDto,
+    opts?: { restoreChannel?: boolean }
+  ) => {
     setSelectedServer(server);
+    localStorage.setItem(LS_SERVER, server.id);
+
+    // сбрасываем текущий чат/канал
+    setSelectedChannel(null);
+    setMessages([]);
+    setChannels([]);
+    setOnlineUsers([]);
+
+    // грузим каналы
     const res = await api.get<ChannelDto[]>(`/channels/${server.id}`);
     setChannels(res.data);
+
+    if (opts?.restoreChannel) {
+      const savedChannelId = localStorage.getItem(LS_CHANNEL);
+      if (savedChannelId) {
+        const ch = res.data.find((c) => c.id === savedChannelId);
+        if (ch) {
+          await selectChannel(ch, { initialScrollToBottom: true });
+        }
+      }
+    }
   };
 
-  const selectChannel = async (channel: ChannelDto) => {
+  // ---------- CHANNEL ----------
+  const selectChannel = async (
+    channel: ChannelDto,
+    opts?: { initialScrollToBottom?: boolean }
+  ) => {
     setSelectedChannel(channel);
+    localStorage.setItem(LS_CHANNEL, channel.id);
 
+    // история
     const history = await api.get<MessageDto[]>(`/messages/${channel.id}`);
     setMessages(history.data);
 
+    // сокет
     socketRef.current?.disconnect();
     const socket = connectSocket(token);
     socketRef.current = socket;
 
     socket.on("message:new", (msg: MessageDto) => {
+      const shouldScroll = isUserAtBottom();
+
       setMessages((prev) => [...prev, msg]);
+
+      if (shouldScroll) {
+        scrollToBottomAfterPaint();
+      }
     });
 
     socket.on("presence:update", (users: { username: string }[]) => {
@@ -109,19 +210,27 @@ function App() {
     });
 
     socket.emit("channel:join", { channelId: channel.id });
+
+    // ВАЖНО: после загрузки истории — сразу в конец
+    if (opts?.initialScrollToBottom ?? true) {
+      scrollToBottomAfterPaint();
+    }
   };
 
+  // ---------- MESSAGE ----------
   const sendMessage = () => {
-    if (!input.trim() || !selectedChannel) return;
+    const content = input.trim();
+    if (!content || !selectedChannel) return;
 
     socketRef.current?.emit("message:send", {
       channelId: selectedChannel.id,
-      content: input.trim(),
+      content,
     });
 
     setInput("");
   };
 
+  // ---------- INVITES ----------
   const createInvite = async () => {
     if (!selectedServer) return;
     const res = await api.post(`/invites/${selectedServer.id}`);
@@ -130,15 +239,18 @@ function App() {
   };
 
   const joinServer = async () => {
-    if (!joinCode.trim()) return;
-    await api.post(`/invites/join/${joinCode.trim()}`);
+    const code = joinCode.trim();
+    if (!code) return;
+
+    await api.post(`/invites/join/${code}`);
     setShowJoinModal(false);
     setJoinCode("");
+
+    restoredOnceRef.current = false;
     await loadServers();
   };
 
-  // ================= AUTH =================
-
+  // ================= AUTH UI =================
   if (!token) {
     return (
       <div style={authWrapper}>
@@ -169,30 +281,22 @@ function App() {
             onChange={(e) => setPassword(e.target.value)}
           />
 
-          <button
-            style={primaryBtn}
-            onClick={mode === "login" ? doLogin : doRegister}
-          >
+          <button style={primaryBtn} onClick={mode === "login" ? doLogin : doRegister}>
             {mode === "login" ? "Login" : "Register"}
           </button>
 
           <div
             style={{ cursor: "pointer", opacity: 0.8 }}
-            onClick={() =>
-              setMode(mode === "login" ? "register" : "login")
-            }
+            onClick={() => setMode(mode === "login" ? "register" : "login")}
           >
-            {mode === "login"
-              ? "No account? Register"
-              : "Have account? Login"}
+            {mode === "login" ? "No account? Register" : "Have account? Login"}
           </div>
         </div>
       </div>
     );
   }
 
-  // ================= MAIN =================
-
+  // ================= MAIN UI =================
   return (
     <div style={layout}>
       {/* SERVERS */}
@@ -202,14 +306,23 @@ function App() {
             key={s.id}
             style={{
               ...serverIcon,
-              background:
-                selectedServer?.id === s.id ? "#5865f2" : "#2b2d31",
+              background: selectedServer?.id === s.id ? "#5865f2" : "#2b2d31",
             }}
-            onClick={() => selectServer(s)}
+            onClick={() => void selectServer(s)}
+            title={s.name}
           >
-            {s.name[0]}
+            {s.name?.[0] ?? "?"}
           </div>
         ))}
+
+        {/* + CREATE SERVER */}
+        <div
+          style={{ ...serverIcon, background: "#3ba55c" }}
+          onClick={() => setShowCreateServerModal(true)}
+          title="Create server"
+        >
+          +
+        </div>
 
         <div style={{ marginTop: "auto" }}>
           <div style={joinBtn} onClick={() => setShowJoinModal(true)}>
@@ -226,7 +339,7 @@ function App() {
         <div style={{ display: "flex", justifyContent: "space-between" }}>
           <div>{selectedServer?.name || "Channels"}</div>
           {selectedServer && (
-            <button style={primaryBtnSmall} onClick={createInvite}>
+            <button style={primaryBtnSmall} onClick={() => void createInvite()}>
               Invite
             </button>
           )}
@@ -238,12 +351,9 @@ function App() {
               key={c.id}
               style={{
                 ...channelItem,
-                background:
-                  selectedChannel?.id === c.id
-                    ? "#404249"
-                    : "transparent",
+                background: selectedChannel?.id === c.id ? "#404249" : "transparent",
               }}
-              onClick={() => selectChannel(c)}
+              onClick={() => void selectChannel(c, { initialScrollToBottom: true })}
             >
               # {c.name}
             </div>
@@ -253,25 +363,18 @@ function App() {
 
       {/* CHAT */}
       <div style={chatArea}>
-        <div style={chatHeader}>
-          {selectedChannel?.name || "Select channel"}
-        </div>
+        <div style={chatHeader}>{selectedChannel?.name || "Select channel"}</div>
 
-        <div style={messagesArea}>
+        <div style={messagesArea} ref={messagesContainerRef}>
           {messages.map((m) => (
             <div key={m.id} style={messageRow}>
-              <div style={avatar}>
-                {(m.user?.username || m.userId)[0]}
-              </div>
+              <div style={avatar}>{(m.user?.username || m.userId || "?")[0]}</div>
               <div>
-                <div style={{ fontWeight: 600 }}>
-                  {m.user?.username || "Unknown"}
-                </div>
+                <div style={{ fontWeight: 600 }}>{m.user?.username || "Unknown"}</div>
                 <div>{m.content}</div>
               </div>
             </div>
           ))}
-          <div ref={messagesEndRef} />
         </div>
 
         {selectedChannel && (
@@ -281,6 +384,7 @@ function App() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+              placeholder="Message..."
             />
             <button style={primaryBtn} onClick={sendMessage}>
               Send
@@ -291,29 +395,40 @@ function App() {
 
       {/* ONLINE */}
       <div style={onlineBar}>
-        <div style={{ fontWeight: 600, marginBottom: 10 }}>
-          Online
-        </div>
+        <div style={{ fontWeight: 600, marginBottom: 10 }}>Online</div>
         {onlineUsers.map((u) => (
           <div key={u} style={onlineItem}>
-            <div style={onlineDot}></div>
+            <div style={onlineDot} />
             {u}
           </div>
         ))}
       </div>
 
+      {/* CREATE SERVER MODAL */}
+      {showCreateServerModal && (
+        <Modal onClose={() => setShowCreateServerModal(false)}>
+          <h3>Create Server</h3>
+          <input
+            style={inputStyle}
+            value={newServerName}
+            onChange={(e) => setNewServerName(e.target.value)}
+            placeholder="Server name"
+            onKeyDown={(e) => e.key === "Enter" && createServer()}
+          />
+          <button style={primaryBtn} onClick={() => void createServer()}>
+            Create
+          </button>
+        </Modal>
+      )}
+
       {/* INVITE MODAL */}
       {showInviteModal && (
         <Modal onClose={() => setShowInviteModal(false)}>
           <h3>Invite Code</h3>
-          <div style={{ margin: "10px 0", fontSize: 18 }}>
-            {inviteCode}
-          </div>
+          <div style={{ margin: "10px 0", fontSize: 18 }}>{inviteCode}</div>
           <button
             style={primaryBtn}
-            onClick={() => {
-              navigator.clipboard.writeText(inviteCode || "");
-            }}
+            onClick={() => navigator.clipboard.writeText(inviteCode || "")}
           >
             Copy
           </button>
@@ -329,8 +444,9 @@ function App() {
             value={joinCode}
             onChange={(e) => setJoinCode(e.target.value)}
             placeholder="Enter invite code"
+            onKeyDown={(e) => e.key === "Enter" && joinServer()}
           />
-          <button style={primaryBtn} onClick={joinServer}>
+          <button style={primaryBtn} onClick={() => void joinServer()}>
             Join
           </button>
         </Modal>
@@ -386,6 +502,7 @@ const serverIcon = {
   justifyContent: "center",
   marginBottom: 10,
   cursor: "pointer",
+  userSelect: "none" as const,
 };
 
 const joinBtn = {
@@ -395,6 +512,7 @@ const joinBtn = {
   textAlign: "center" as const,
   marginBottom: 6,
   cursor: "pointer",
+  userSelect: "none" as const,
 };
 
 const logoutBtn = {
@@ -403,6 +521,7 @@ const logoutBtn = {
   borderRadius: 6,
   textAlign: "center" as const,
   cursor: "pointer",
+  userSelect: "none" as const,
 };
 
 const channelBar = {
@@ -416,6 +535,7 @@ const channelItem = {
   borderRadius: 6,
   cursor: "pointer",
   marginBottom: 4,
+  userSelect: "none" as const,
 };
 
 const chatArea = {
@@ -449,7 +569,8 @@ const avatar = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  fontWeight: "bold",
+  fontWeight: "bold" as const,
+  userSelect: "none" as const,
 };
 
 const inputBar = {
@@ -466,6 +587,7 @@ const chatInput = {
   border: "none",
   background: "#1e1f22",
   color: "white",
+  outline: "none",
 };
 
 const onlineBar = {
@@ -512,6 +634,7 @@ const inputStyle = {
   border: "none",
   background: "#1e1f22",
   color: "white",
+  outline: "none",
 };
 
 const primaryBtn = {
@@ -539,6 +662,7 @@ const modalOverlay = {
   display: "flex",
   justifyContent: "center",
   alignItems: "center",
+  zIndex: 9999,
 };
 
 const modalBox = {

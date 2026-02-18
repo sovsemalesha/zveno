@@ -11,7 +11,6 @@ export class InviteService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(serverId: string, creatorId: string) {
-    // Проверяем что пользователь состоит в сервере
     const member = await this.prisma.serverMember.findUnique({
       where: {
         userId_serverId: {
@@ -25,13 +24,16 @@ export class InviteService {
       throw new ForbiddenException('Not a server member')
     }
 
+    if (member.role !== 'owner' && member.role !== 'admin') {
+      throw new ForbiddenException('Only owner or admin can create invite')
+    }
+
     const code = generateInviteCode()
 
     return await this.prisma.invite.create({
       data: {
         code,
         serverId,
-        uses: 0,
       },
     })
   }
@@ -67,7 +69,7 @@ export class InviteService {
         data: {
           userId,
           serverId: invite.serverId,
-          role: 'MEMBER',
+          role: 'member',
         },
       })
     }
@@ -80,5 +82,34 @@ export class InviteService {
     })
 
     return { success: true, serverId: invite.serverId }
+  }
+
+  async deleteInvite(code: string, userId: string) {
+    const invite = await this.prisma.invite.findUnique({
+      where: { code },
+    })
+
+    if (!invite) {
+      throw new NotFoundException('Invite not found')
+    }
+
+    const member = await this.prisma.serverMember.findUnique({
+      where: {
+        userId_serverId: {
+          userId,
+          serverId: invite.serverId,
+        },
+      },
+    })
+
+    if (!member || (member.role !== 'owner' && member.role !== 'admin')) {
+      throw new ForbiddenException('Not allowed')
+    }
+
+    await this.prisma.invite.delete({
+      where: { code },
+    })
+
+    return { success: true }
   }
 }

@@ -1,4 +1,11 @@
-import { Controller, Post, Param, UseGuards, Req } from '@nestjs/common'
+import {
+  Controller,
+  Post,
+  Delete,
+  Param,
+  UseGuards,
+  Req,
+} from '@nestjs/common'
 import { InviteService } from './invite.service'
 import { JwtAuthGuard } from '../auth/jwt-auth.guard'
 
@@ -21,5 +28,13 @@ export class InviteController {
     @Req() req: any,
   ) {
     return this.inviteService.joinByCode(code, req.user.userId)
+  }
+
+  @Delete(':code')
+  delete(
+    @Param('code') code: string,
+    @Req() req: any,
+  ) {
+    return this.inviteService.deleteInvite(code, req.user.userId)
   }
 }
