@@ -15,6 +15,8 @@ model User {
   createdAt DateTime @default(now())
 
   memberships ServerMember[]
+  messages Message[]
+
 
 }
 model Server {
@@ -23,6 +25,8 @@ model Server {
   createdAt DateTime       @default(now())
 
   members   ServerMember[]
+  channels Channel[]
+
 }
 
 model ServerMember {
@@ -36,4 +40,29 @@ model ServerMember {
   server    Server   @relation(fields: [serverId], references: [id])
 
   @@unique([userId, serverId])
+}
+
+model Channel {
+  id        String   @id @default(uuid())
+  name      String
+  type      String   @default("text")
+  serverId  String
+  createdAt DateTime @default(now())
+
+  server    Server   @relation(fields: [serverId], references: [id])
+
+  @@unique([serverId, name])
+  messages Message[]
+
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  content   String
+  userId    String
+  channelId String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+  channel   Channel  @relation(fields: [channelId], references: [id])
 }
