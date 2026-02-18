@@ -1,5 +1,8 @@
 import { Controller, Post, Body, Get } from '@nestjs/common'
 import { UsersService } from './users.service'
+import { UseGuards } from '@nestjs/common'
+import { JwtAuthGuard } from '../auth/jwt-auth.guard'
+
 
 @Controller('users')
 export class UsersController {
@@ -13,8 +16,10 @@ export class UsersController {
     return this.usersService.create(body)
   }
 
-  @Get()
-  findAll() {
-    return this.usersService.findAll()
-  }
+@UseGuards(JwtAuthGuard)
+@Get()
+findAll() {
+  return this.usersService.findAll()
+}
+
 }
