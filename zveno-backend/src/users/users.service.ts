@@ -12,6 +12,8 @@ export class UsersService {
     username: string
     password: string
   }) {
+    // ВАЖНО: UsersService отвечает за хеширование пароля.
+    // AuthService НЕ должен дополнительно хешировать пароль, иначе получится двойной хеш.
     const hashedPassword = await bcrypt.hash(data.password, 10)
 
     try {
@@ -31,6 +33,10 @@ export class UsersService {
 
       throw error
     }
+  }
+
+  async findByEmail(email: string) {
+    return this.prisma.user.findUnique({ where: { email } })
   }
 
   async findAll() {

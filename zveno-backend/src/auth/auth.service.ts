@@ -12,15 +12,24 @@ export class AuthService {
   ) {}
 
   async register(data: { email: string; username: string; password: string }) {
-    const hashedPassword = await bcrypt.hash(data.password, 10)
+    // Нормализуем email (чтобы user@a.com и USER@A.COM не плодились)
+    const email = data.email.trim().toLowerCase()
+    const username = data.username.trim()
 
     try {
+      // UsersService САМ хеширует пароль. Здесь хешировать нельзя (иначе будет двойной хеш).
       const user = await this.usersService.create({
-        ...data,
-        password: hashedPassword,
+        email,
+        username,
+        password: data.password,
       })
 
-      return { id: user.id, email: user.email, username: user.username }
+      const payload = { sub: user.id, email: user.email }
+
+      return {
+        access_token: this.jwtService.sign(payload),
+        user: { id: user.id, email: user.email, username: user.username },
+      }
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -33,8 +42,8 @@ export class AuthService {
   }
 
   async login(email: string, password: string) {
-    const users = await this.usersService.findAll()
-    const user = users.find(u => u.email === email)
+    const normalizedEmail = email.trim().toLowerCase()
+    const user = await this.usersService.findByEmail(normalizedEmail)
 
     if (!user) {
       throw new UnauthorizedException('Invalid credentials')
