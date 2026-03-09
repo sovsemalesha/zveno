@@ -69,6 +69,32 @@ class Api {
     });
   }
   
+  async updateServer(id: string, name: string, icon?: string) {
+    return this.request<any>(`/servers/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name, icon }),
+    });
+  }
+  
+  async generateInvite(serverId: string) {
+    return this.request<{ inviteCode: string }>(`/servers/${serverId}/invite`, {
+      method: 'POST',
+    });
+  }
+  
+  async kickMember(serverId: string, memberId: string) {
+    return this.request<any>(`/servers/${serverId}/members/${memberId}`, {
+      method: 'DELETE',
+    });
+  }
+  
+  async updateMemberRole(serverId: string, memberId: string, role: 'ADMIN' | 'MODERATOR' | 'USER') {
+    return this.request<any>(`/servers/${serverId}/members/${memberId}/role`, {
+      method: 'PATCH',
+      body: JSON.stringify({ role }),
+    });
+  }
+  
   async createChannel(serverId: string, name: string, type: 'TEXT' | 'VOICE' = 'TEXT') {
     return this.request<any>(`/channels/server/${serverId}`, {
       method: 'POST',

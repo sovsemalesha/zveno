@@ -25,6 +25,12 @@ export default function ServerPage() {
   const [newChannelName, setNewChannelName] = useState('');
   const [newChannelType, setNewChannelType] = useState<'TEXT' | 'VOICE'>('TEXT');
   
+  const [showServerSettings, setShowServerSettings] = useState(false);
+  const [serverName, setServerName] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showMemberMenu, setShowMemberMenu] = useState<string | null>(null);
+  
   const [isInVoice, setIsInVoice] = useState(false);
   const [voiceParticipants, setVoiceParticipants] = useState<{ userId: string; username: string }[]>([]);
   const [isMuted, setIsMuted] = useState(false);
@@ -108,6 +114,51 @@ export default function ServerPage() {
     setVoiceParticipants([{ userId: user!.id, username: user!.username }]);
   };
   
+  const handleOpenSettings = () => {
+    setServerName(currentServer?.name || '');
+    setInviteCode(currentServer?.inviteCode || '');
+    setShowServerSettings(true);
+  };
+  
+  const handleUpdateServer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.updateServer(serverId, serverName);
+      setCurrentServer({ ...currentServer!, name: serverName });
+      setShowServerSettings(false);
+    } catch (err) {
+      console.error('Failed to update server:', err);
+    }
+  };
+  
+  const handleGenerateInvite = async () => {
+    try {
+      const result = await api.generateInvite(serverId);
+      setInviteCode(result.inviteCode);
+      setShowInviteModal(true);
+    } catch (err) {
+      console.error('Failed to generate invite:', err);
+    }
+  };
+  
+  const handleKickMember = async (memberId: string) => {
+    try {
+      await api.kickMember(serverId, memberId);
+      setMembers(members.filter(m => m.id !== memberId));
+    } catch (err) {
+      console.error('Failed to kick member:', err);
+    }
+  };
+  
+  const handleChangeRole = async (memberId: string, role: 'ADMIN' | 'MODERATOR' | 'USER') => {
+    try {
+      await api.updateMemberRole(serverId, memberId, role);
+      setMembers(members.map(m => m.id === memberId ? { ...m, role } : m));
+    } catch (err) {
+      console.error('Failed to change role:', err);
+    }
+  };
+  
   const handleLeaveVoice = () => {
     setIsInVoice(false);
     setVoiceParticipants([]);
@@ -123,6 +174,10 @@ export default function ServerPage() {
   
   const textChannels = channels.filter(c => c.type === 'TEXT');
   const voiceChannels = channels.filter(c => c.type === 'VOICE');
+  
+  const currentMember = members.find(m => m.userId === user?.id);
+  const isAdmin = currentMember?.role === 'ADMIN';
+  const isModerator = currentMember?.role === 'ADMIN' || currentMember?.role === 'MODERATOR';
   
   const handleLogout = () => {
     logout();
@@ -144,6 +199,8 @@ export default function ServerPage() {
           )}
           <span>{currentServer.name}</span>
         </Link>
+        
+        <button className={styles.settingsBtn} onClick={handleOpenSettings}>⚙️</button>
         
         <div className={styles.channels}>
           {textChannels.length > 0 && (
@@ -263,10 +320,18 @@ export default function ServerPage() {
               )}
               <div className={styles.status} />
             </div>
-            <div className={styles.memberInfo}>
+            <div className={styles.memberInfo} onClick={() => isModerator && member.userId !== user?.id && setShowMemberMenu(showMemberMenu === member.id ? null : member.id)}>
               <span className={styles.memberName}>{member.user.username}</span>
               <span className={styles.memberRole}>{member.role}</span>
             </div>
+            
+            {showMemberMenu === member.id && isModerator && member.userId !== user?.id && (
+              <div className={styles.memberMenu}>
+                <button onClick={() => { handleChangeRole(member.id, 'MODERATOR'); setShowMemberMenu(null); }}>Make Moderator</button>
+                <button onClick={() => { handleChangeRole(member.id, 'USER'); setShowMemberMenu(null); }}>Remove Moderator</button>
+                <button className={styles.kickBtn} onClick={() => { handleKickMember(member.id); setShowMemberMenu(null); }}>Kick</button>
+              </div>
+            )}
           </div>
         ))}
         
@@ -305,6 +370,43 @@ export default function ServerPage() {
                 <button type="submit">Create</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      
+      {showServerSettings && (
+        <div className={styles.modal}>
+          <div className={styles.modalContent}>
+            <h2>Server Settings</h2>
+            <form onSubmit={handleUpdateServer}>
+              <input
+                type="text"
+                placeholder="Server name"
+                value={serverName}
+                onChange={(e) => setServerName(e.target.value)}
+                required
+              />
+              <button type="button" className={styles.inviteBtn} onClick={handleGenerateInvite}>
+                Generate Invite Link
+              </button>
+              <div className={styles.modalActions}>
+                <button type="button" onClick={() => setShowServerSettings(false)}>Cancel</button>
+                <button type="submit">Save</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      
+      {showInviteModal && (
+        <div className={styles.modal}>
+          <div className={styles.modalContent}>
+            <h2>Invite Link</h2>
+            <p className={styles.inviteCode}>{inviteCode}</p>
+            <p className={styles.inviteHint}>Share this code with others to join your server!</p>
+            <div className={styles.modalActions}>
+              <button type="button" onClick={() => setShowInviteModal(false)}>Close</button>
+            </div>
           </div>
         </div>
       )}
