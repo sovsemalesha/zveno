@@ -1,12 +1,14 @@
 import { Server, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../services/prisma.js';
+import { voiceService } from '../services/voice.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'zveno-secret-key';
 
 interface AuthSocket extends Socket {
   userId?: string;
   serverId?: string;
+  channelId?: string;
 }
 
 export function setupSocket(io: Server) {
@@ -105,7 +107,67 @@ export function setupSocket(io: Server) {
       socket.leave(`voice:${data.channelId}`);
       socket.to(`voice:${data.channelId}`).emit('voice:user-left', { userId: socket.userId });
     });
-    
+
+    socket.on('voice:getRouterRtpCapabilities', async (serverId: string) => {
+      const capabilities = voiceService.getRoomRtpCapabilities(serverId);
+      socket.emit('voice:routerRtpCapabilities', capabilities);
+    });
+
+    socket.on('voice:createTransport', async (data: { serverId: string }) => {
+      try {
+        const transport = await voiceService.createTransport(data.serverId, socket.id);
+        socket.emit('voice:transportCreated', {
+          id: transport.id,
+          iceParameters: transport.iceParameters,
+          iceCandidates: transport.iceCandidates,
+          dtlsParameters: transport.dtlsParameters,
+        });
+      } catch (err) {
+        socket.emit('voice:error', { error: (err as Error).message });
+      }
+    });
+
+    socket.on('voice:connectTransport', async (data: { serverId: string; transportId: string; dtlsParameters: any }) => {
+      try {
+        await voiceService.connectTransport(data.serverId, socket.id, data.dtlsParameters);
+        socket.emit('voice:transportConnected');
+      } catch (err) {
+        socket.emit('voice:error', { error: (err as Error).message });
+      }
+    });
+
+    socket.on('voice:produce', async (data: { serverId: string; transportId: string; kind: string; rtpParameters: any }) => {
+      try {
+        const producer = await voiceService.createProducer(
+          data.serverId,
+          socket.id,
+          data.transportId,
+          data.kind as 'audio',
+          data.rtpParameters
+        );
+        
+        socket.emit('voice:producerCreated', { id: producer.id });
+        
+        socket.to(`voice:${socket.channelId}`).emit('voice:newProducer', { producerId: producer.id });
+      } catch (err) {
+        socket.emit('voice:error', { error: (err as Error).message });
+      }
+    });
+
+    socket.on('voice:consume', async (data: { serverId: string; producerId: string }) => {
+      try {
+        const consumer = await voiceService.createConsumer(data.serverId, socket.id, data.producerId);
+        socket.emit('voice:consumed', {
+          id: consumer.id,
+          producerId: consumer.producerId,
+          kind: consumer.kind,
+          rtpParameters: consumer.rtpParameters,
+        });
+      } catch (err) {
+        socket.emit('voice:error', { error: (err as Error).message });
+      }
+    });
+
     socket.on('disconnect', async () => {
       if (socket.serverId && socket.userId) {
         const member = await prisma.member.findFirst({
@@ -114,6 +176,7 @@ export function setupSocket(io: Server) {
         
         if (member?.voiceChannelId) {
           socket.to(`voice:${member.voiceChannelId}`).emit('voice:user-left', { userId: socket.userId });
+          await voiceService.disconnectPeer(socket.serverId, socket.id);
         }
       }
       console.log(`User disconnected: ${socket.userId}`);

@@ -9,6 +9,7 @@ import { serverRouter } from './routes/servers.js';
 import { channelRouter } from './routes/channels.js';
 import { messageRouter } from './routes/messages.js';
 import { setupSocket } from './socket/index.js';
+import { voiceService } from './services/voice.js';
 
 dotenv.config();
 
@@ -33,6 +34,18 @@ setupSocket(io);
 
 const PORT = process.env.PORT || 3001;
 
-httpServer.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+async function start() {
+  try {
+    await voiceService.initialize();
+    console.log('✅ Voice service initialized');
+    
+    httpServer.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+    });
+  } catch (err) {
+    console.error('Failed to start server:', err);
+    process.exit(1);
+  }
+}
+
+start();

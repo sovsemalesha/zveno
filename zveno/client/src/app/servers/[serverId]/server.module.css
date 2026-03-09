@@ -102,6 +102,11 @@
   cursor: pointer;
 }
 
+.channel.voiceActive {
+  background: var(--success) !important;
+  color: white !important;
+}
+
 .main {
   flex: 1;
   display: flex;

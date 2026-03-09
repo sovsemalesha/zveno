@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuthStore, useAppStore } from '@/store';
 import { api } from '@/lib/api';
 import { Channel, Message, Member } from '@/types';
+import VoicePanel from '@/components/VoicePanel';
 import styles from './server.module.css';
 
 export default function ServerPage() {
@@ -23,6 +24,11 @@ export default function ServerPage() {
   const [showCreateChannel, setShowCreateChannel] = useState(false);
   const [newChannelName, setNewChannelName] = useState('');
   const [newChannelType, setNewChannelType] = useState<'TEXT' | 'VOICE'>('TEXT');
+  
+  const [isInVoice, setIsInVoice] = useState(false);
+  const [voiceParticipants, setVoiceParticipants] = useState<{ userId: string; username: string }[]>([]);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isDeafened, setIsDeafened] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -96,6 +102,25 @@ export default function ServerPage() {
     }
   };
   
+  const handleJoinVoice = async (channel: Channel) => {
+    setCurrentChannel(channel);
+    setIsInVoice(true);
+    setVoiceParticipants([{ userId: user!.id, username: user!.username }]);
+  };
+  
+  const handleLeaveVoice = () => {
+    setIsInVoice(false);
+    setVoiceParticipants([]);
+  };
+  
+  const handleToggleMute = () => {
+    setIsMuted(!isMuted);
+  };
+  
+  const handleToggleDeafen = () => {
+    setIsDeafened(!isDeafened);
+  };
+  
   const textChannels = channels.filter(c => c.type === 'TEXT');
   const voiceChannels = channels.filter(c => c.type === 'VOICE');
   
@@ -148,8 +173,8 @@ export default function ServerPage() {
               {voiceChannels.map(channel => (
                 <div
                   key={channel.id}
-                  className={`${styles.channel} ${styles.voice} ${currentChannel?.id === channel.id ? styles.active : ''}`}
-                  onClick={() => setCurrentChannel(channel)}
+                  className={`${styles.channel} ${styles.voice} ${currentChannel?.id === channel.id ? styles.active : ''} ${isInVoice && currentChannel?.id === channel.id ? styles.voiceActive : ''}`}
+                  onClick={() => handleJoinVoice(channel)}
                 >
                   🔊 {channel.name}
                 </div>
@@ -211,6 +236,18 @@ export default function ServerPage() {
               onChange={(e) => setMessageInput(e.target.value)}
             />
           </form>
+        )}
+        
+        {isInVoice && currentChannel?.type === 'VOICE' && (
+          <VoicePanel
+            channelId={currentChannel?.id}
+            participants={voiceParticipants}
+            isMuted={isMuted}
+            isDeafened={isDeafened}
+            onToggleMute={handleToggleMute}
+            onToggleDeafen={handleToggleDeafen}
+            onLeave={handleLeaveVoice}
+          />
         )}
       </div>
       
