@@ -2,13 +2,15 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm ci --only=production
+COPY zveno/server/package*.json ./package*.json
+RUN npm ci
 
-COPY prisma ./prisma/
+COPY zveno/server/tsconfig.json ./tsconfig.json
+COPY zveno/server/src ./src
+COPY zveno/server/prisma ./prisma
+
 RUN npx prisma generate
-
-COPY dist ./dist/
+RUN npm run build
 
 EXPOSE 3001
 
