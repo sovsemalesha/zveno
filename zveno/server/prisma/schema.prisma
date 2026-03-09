@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String    @id @default(cuid())
+  email     String    @unique
+  username  String    @unique
+  password  String
+  avatar    String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  
+  servers      Member[]
+  messages     Message[]
+  ownedServers Server[]      @relation("ServerOwner")
+}
+
+model Server {
+  id          String    @id @default(cuid())
+  name        String
+  icon        String?
+  inviteCode  String    @unique
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  ownerId     String
+  owner       User      @relation("ServerOwner", fields: [ownerId], references: [id])
+  
+  channels    Channel[]
+  members     Member[]
+}
+
+model Channel {
+  id        String       @id @default(cuid())
+  name      String
+  type     ChannelType  @default(TEXT)
+  position  Int          @default(0)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  
+  serverId  String
+  server    Server       @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  
+  messages  Message[]
+}
+
+model Member {
+  id        String    @id @default(cuid())
+  role      Role      @default(USER)
+  joinedAt  DateTime  @default(now())
+  
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  serverId  String
+  server    Server    @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  
+  voiceChannelId String?
+  
+  @@unique([userId, serverId])
+}
+
+model Message {
+  id        String    @id @default(cuid())
+  content   String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  
+  channelId String
+  channel   Channel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum ChannelType {
+  TEXT
+  VOICE
+}
+
+enum Role {
+  ADMIN
+  MODERATOR
+  USER
+}

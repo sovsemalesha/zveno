@@ -1,0 +1,82 @@
+.sidebar {
+  width: 72px;
+  background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+  padding: 12px 0;
+}
+
+.servers {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.serverIcon {
+  width: 48px;
+  height: 48px;
+  background: var(--bg-tertiary);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  overflow: hidden;
+}
+
+.serverIcon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.serverIcon span {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.serverIcon:hover {
+  background: var(--accent);
+  border-radius: 16px;
+}
+
+.serverIcon.active {
+  background: var(--accent);
+  border-radius: 16px;
+}
+
+.bottomActions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--bg-tertiary);
+  margin: 0 12px;
+}
+
+.addButton {
+  width: 48px;
+  height: 48px;
+  background: var(--bg-tertiary);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  color: var(--success);
+}
+
+.addButton span {
+  font-size: 24px;
+}
+
+.addButton:hover {
+  background: var(--success);
+  color: white;
+  border-radius: 16px;
+}
