@@ -22,7 +22,6 @@ export default function LoginPage() {
     setLoading(true);
     
     try {
-      api.setToken(null);
       const { user, token } = await api.login(email, password);
       setAuth(user, token);
       api.setToken(token);
