@@ -1,21 +1,18 @@
-import { types as mediasoupTypes, createWorker, Worker } from 'mediasoup';
+import * as mediasoup from 'mediasoup';
 
 interface Room {
   id: string;
-  router: mediasoupTypes.Router;
-  peers: Map<string, mediasoupTypes.WebRtcTransport>;
+  router: mediasoup.types.Router;
+  peers: Map<string, mediasoup.types.WebRtcTransport>;
 }
 
 class VoiceService {
-  private worker: Worker | null = null;
+  private worker: mediasoup.types.Worker | null = null;
   private rooms: Map<string, Room> = new Map();
 
   async initialize() {
-    this.worker = await createWorker({
+    this.worker = await mediasoup.createWorker({
       logLevel: 'warn',
-      dtlsCertificate: {
-        commonName: 'zveno',
-      },
     });
 
     this.worker.on('died', () => {
@@ -55,20 +52,19 @@ class VoiceService {
     return room;
   }
 
-  async createTransport(serverId: string, peerId: string): Promise<mediasoupTypes.WebRtcTransport> {
+  async createTransport(serverId: string, peerId: string): Promise<mediasoup.types.WebRtcTransport> {
     const room = await this.createRoom(serverId);
 
     const transport = await room.router.createWebRtcTransport({
       listenIps: [{ ip: '0.0.0.0', announcedIp: process.env.ANNOUNCED_IP }],
       initialAvailableOutgoingBitrate: 128000,
-      maxIncomingBitrate: 0,
     });
 
     room.peers.set(peerId, transport);
     return transport;
   }
 
-  async connectTransport(serverId: string, peerId: string, dtlsParameters: mediasoupTypes.DtlsParameters) {
+  async connectTransport(serverId: string, peerId: string, dtlsParameters: mediasoup.types.DtlsParameters) {
     const room = this.rooms.get(serverId);
     if (!room) throw new Error('Room not found');
 
@@ -78,7 +74,7 @@ class VoiceService {
     await transport.connect({ dtlsParameters });
   }
 
-  async createProducer(serverId: string, peerId: string, transportId: string, kind: 'audio', rtpParameters: mediasoupTypes.RtpParameters): Promise<mediasoupTypes.Producer> {
+  async createProducer(serverId: string, peerId: string, transportId: string, kind: 'audio', rtpParameters: mediasoup.types.RtpParameters): Promise<mediasoup.types.Producer> {
     const room = this.rooms.get(serverId);
     if (!room) throw new Error('Room not found');
 
@@ -89,22 +85,15 @@ class VoiceService {
     return producer;
   }
 
-  async createConsumer(serverId: string, peerId: string, producerId: string): Promise<mediasoupTypes.Consumer> {
+  async createConsumer(serverId: string, peerId: string, producerId: string): Promise<mediasoup.types.Consumer> {
     const room = this.rooms.get(serverId);
     if (!room) throw new Error('Room not found');
 
     const transport = room.peers.get(peerId);
     if (!transport) throw new Error('Transport not found');
 
-    const producer = room.router.producers.get(producerId);
-    if (!producer) throw new Error('Producer not found');
-
     const consumer = await transport.consume({
       producerId,
-      rtpCapabilities: {
-        codecs: [{ mimeType: 'audio/opus', channels: 2 }],
-        headerExtensions: [],
-      },
     });
 
     return consumer;
@@ -130,12 +119,6 @@ class VoiceService {
     const room = this.rooms.get(serverId);
     if (!room) return null;
     return room.router.rtpCapabilities;
-  }
-
-  getProducers(serverId: string): string[] {
-    const room = this.rooms.get(serverId);
-    if (!room) return [];
-    return Array.from(room.router.producers.keys());
   }
 }
 
