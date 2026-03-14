@@ -11,6 +11,7 @@ export default function Home() {
   const { user, token, setAuth } = useAuthStore();
   const { setServers } = useAppStore();
   const [loading, setLoading] = useState(true);
+  const [initialized, setInitialized] = useState(false);
   
   useEffect(() => {
     const init = async () => {
@@ -29,19 +30,22 @@ export default function Home() {
       }
       
       setLoading(false);
+      setInitialized(true);
     };
     
     init();
   }, [setAuth, setServers]);
   
   useEffect(() => {
-    if (!loading && !user && !token) {
-      router.push('/login');
-    } else if (!loading && user) {
-      router.push('/servers');
+    if (initialized) {
+      if (user) {
+        router.push('/servers');
+      } else {
+        router.push('/login');
+      }
     }
-  }, [loading, user, token, router]);
-  
+  }, [initialized, user, router]);
+
   return (
     <div className={styles.loading}>
       <div className={styles.spinner}></div>

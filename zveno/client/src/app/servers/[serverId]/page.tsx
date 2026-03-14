@@ -39,7 +39,7 @@ export default function ServerPage() {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const [loading, setLoading] = useState(false);
+  const [serverLoading, setServerLoading] = useState(false);
   
   useEffect(() => {
     if (!user) {
@@ -49,16 +49,16 @@ export default function ServerPage() {
     
     setMessages([]);
     setCurrentChannel(null);
-    setLoading(true);
-    loadServer().finally(() => setLoading(false));
+    setServerLoading(true);
+    loadServer().finally(() => setServerLoading(false));
   }, [serverId, user]);
-  
+
   useEffect(() => {
-    if (currentChannel && !loading) {
+    if (currentChannel && !serverLoading) {
       setMessages([]);
       loadMessages(currentChannel.id);
     }
-  }, [currentChannel, loading]);
+  }, [currentChannel?.id, serverLoading]);
   
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -260,7 +260,7 @@ export default function ServerPage() {
         </div>
         
         <div className={styles.messages} ref={messagesContainerRef}>
-          {loading ? (
+          {serverLoading ? (
             <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-secondary)' }}>
               Loading...
             </div>
