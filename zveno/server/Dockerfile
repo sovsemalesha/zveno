@@ -10,7 +10,7 @@ COPY src ./src
 COPY prisma ./prisma
 
 RUN npx prisma generate
-RUN npx prisma db push --skip-seed
+RUN npx prisma db push
 RUN npm run build
 
 EXPOSE 3001
