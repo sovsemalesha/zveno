@@ -4,13 +4,12 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore, useAppStore } from '@/store';
 import { api } from '@/lib/api';
-import ServerSidebar from '@/components/ServerSidebar';
 import styles from './servers.module.css';
 
 export default function ServersPage() {
   const router = useRouter();
   const { user, logout } = useAuthStore();
-  const { servers, setServers, setCurrentServer, currentServer } = useAppStore();
+  const { servers, setServers, setCurrentServer } = useAppStore();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [newServerName, setNewServerName] = useState('');
@@ -68,8 +67,6 @@ export default function ServersPage() {
   
   return (
     <div className={styles.layout}>
-      <ServerSidebar />
-      
       <div className={styles.main}>
         <div className={styles.content}>
           <h1 className="glitch" data-text="ZVENO">ZVENO</h1>
