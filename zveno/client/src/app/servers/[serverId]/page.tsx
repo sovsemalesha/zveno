@@ -39,6 +39,7 @@ export default function ServerPage() {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [loading, setLoading] = useState(false);
   
   useEffect(() => {
     if (!user) {
@@ -48,15 +49,16 @@ export default function ServerPage() {
     
     setMessages([]);
     setCurrentChannel(null);
-    loadServer();
+    setLoading(true);
+    loadServer().finally(() => setLoading(false));
   }, [serverId, user]);
   
   useEffect(() => {
-    if (currentChannel) {
+    if (currentChannel && !loading) {
       setMessages([]);
       loadMessages(currentChannel.id);
     }
-  }, [currentChannel]);
+  }, [currentChannel, loading]);
   
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -258,7 +260,11 @@ export default function ServerPage() {
         </div>
         
         <div className={styles.messages} ref={messagesContainerRef}>
-          {currentChannel?.type === 'TEXT' ? (
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-secondary)' }}>
+              Loading...
+            </div>
+          ) : currentChannel?.type === 'TEXT' ? (
             messages.map(msg => (
               <div key={msg.id} className={styles.message}>
                 <div className={styles.messageAvatar}>
