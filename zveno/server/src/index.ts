@@ -47,6 +47,15 @@ const PORT = process.env.PORT || 3001;
 
 async function start() {
   try {
+    console.log('Running database migrations...');
+    const { execSync } = require('child_process');
+    try {
+      execSync('npx prisma db push --force-reset', { stdio: 'inherit' });
+      console.log('✅ Database schema pushed');
+    } catch (e) {
+      console.log('DB push failed, trying to continue...');
+    }
+    
     await voiceService.initialize();
     console.log('✅ Voice service initialized');
     
