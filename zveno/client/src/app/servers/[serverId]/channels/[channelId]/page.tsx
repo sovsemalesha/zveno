@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import { useAppStore } from '@/store';
 import { api } from '@/lib/api';
 import { Message } from '@/types';
@@ -84,13 +85,41 @@ export default function ChannelPage() {
   const isVoice = currentChannel.type === 'VOICE';
   
   return (
-    <div className={styles.layout}>
-      <div className={styles.chatHeader}>
-        <div className={styles.channelTitle}>
-          <span>{isVoice ? '🔊' : '#'}</span>
-          <span>{currentChannel.name}</span>
+    <div style={{ display: 'flex', height: '100vh' }}>
+      <div style={{ width: '240px', background: 'var(--bg-secondary)', borderRight: '2px solid var(--accent)', display: 'flex', flexDirection: 'column' }}>
+        <Link href="/servers" style={{ padding: '12px', borderBottom: '2px solid var(--accent)', color: 'var(--text-primary)' }}>
+          ← Back to Servers
+        </Link>
+        <div style={{ padding: '12px', flex: 1 }}>
+          <div style={{ fontWeight: 'bold', marginBottom: '12px', color: 'var(--accent)' }}>
+            {currentServer?.name}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {currentServer?.channels?.map(ch => (
+              <Link
+                key={ch.id}
+                href={`/servers/${serverId}/channels/${ch.id}`}
+                style={{
+                  padding: '8px',
+                  borderRadius: '4px',
+                  color: ch.id === currentChannel?.id ? 'var(--bg-primary)' : 'var(--text-secondary)',
+                  background: ch.id === currentChannel?.id ? 'var(--accent)' : 'transparent',
+                  textDecoration: 'none',
+                }}
+              >
+                {ch.type === 'VOICE' ? '🔊' : '#'} {ch.name}
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
+      <div className={styles.layout}>
+        <div className={styles.chatHeader}>
+          <div className={styles.channelTitle}>
+            <span>{isVoice ? '🔊' : '#'}</span>
+            <span>{currentChannel.name}</span>
+          </div>
+        </div>
       
       <div className={styles.messages}>
         {isVoice ? (
@@ -134,6 +163,7 @@ export default function ChannelPage() {
           />
         </form>
       )}
+    </div>
     </div>
   );
 }

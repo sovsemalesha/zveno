@@ -7,6 +7,7 @@ import { useAuthStore, useAppStore } from '@/store';
 import { api } from '@/lib/api';
 import { Channel, Message, Member } from '@/types';
 import VoicePanel from '@/components/VoicePanel';
+import ServerSidebar from '@/components/ServerSidebar';
 import styles from './server.module.css';
 
 export default function ServerPage() {
