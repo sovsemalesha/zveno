@@ -52,11 +52,27 @@ interface AppState {
   setCurrentChannel: (channel: Channel | null) => void;
 }
 
+const initialState = {
+  servers: [] as Server[],
+  currentServer: null as Server | null,
+  currentChannel: null as Channel | null,
+};
+
 export const useAppStore = create<AppState>((set) => ({
-  servers: [],
-  currentServer: null,
-  currentChannel: null,
-  setServers: (servers) => set({ servers }),
+  ...initialState,
+  setServers: (servers) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('servers', JSON.stringify(servers));
+    }
+    set({ servers });
+  },
   setCurrentServer: (server) => set({ currentServer: server }),
   setCurrentChannel: (channel) => set({ currentChannel: channel }),
 }));
+
+if (typeof window !== 'undefined') {
+  const savedServers = localStorage.getItem('servers');
+  if (savedServers) {
+    useAppStore.setState({ servers: JSON.parse(savedServers) });
+  }
+}

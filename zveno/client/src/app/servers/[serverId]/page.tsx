@@ -59,15 +59,21 @@ export default function ServerPage() {
     
     setMessages([]);
     setCurrentChannel(null);
+    setCurrentChannelId(null);
     setServerLoading(true);
     loadServer().finally(() => setServerLoading(false));
   }, [serverId, isLoaded, user]);
 
   useEffect(() => {
     if (currentChannel) {
+      const channelIdToLoad = currentChannel.id;
       setMessages([]);
       setMessagesLoading(true);
-      loadMessages(currentChannel.id).finally(() => setMessagesLoading(false));
+      loadMessages(channelIdToLoad).finally(() => {
+        if (currentChannelId === channelIdToLoad) {
+          setMessagesLoading(false);
+        }
+      });
     }
   }, [currentChannel?.id]);
   
@@ -274,6 +280,10 @@ export default function ServerPage() {
           {serverLoading || messagesLoading ? (
             <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-secondary)' }}>
               Loading...
+            </div>
+          ) : !currentChannel ? (
+            <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-secondary)' }}>
+              Select a channel
             </div>
           ) : currentChannel?.type === 'TEXT' ? (
             messages.map(msg => (
