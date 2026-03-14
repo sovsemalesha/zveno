@@ -2,50 +2,43 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthStore, useAppStore } from '@/store';
+import { useAuthStore } from '@/store';
 import { api } from '@/lib/api';
 import styles from './page.module.css';
 
 export default function Home() {
   const router = useRouter();
-  const { user, token, isLoaded, loadAuth, setAuth } = useAuthStore();
-  const { setServers } = useAppStore();
-  const [checking, setChecking] = useState(true);
+  const { user, setAuth, logout } = useAuthStore();
+  const [loading, setLoading] = useState(true);
   
   useEffect(() => {
-    loadAuth();
+    const init = async () => {
+      const savedToken = localStorage.getItem('token');
+      
+      if (savedToken) {
+        try {
+          const userData = await api.getMe();
+          setAuth(userData, savedToken);
+        } catch {
+          logout();
+        }
+      }
+      
+      setLoading(false);
+    };
+    
+    init();
   }, []);
   
   useEffect(() => {
-    if (isLoaded && !user && token) {
-      api.setToken(token);
-      api.getMe()
-        .then((userData) => {
-          setAuth(userData, token);
-          return api.getServers();
-        })
-        .then((servers) => {
-          setServers(servers);
-          setChecking(false);
-        })
-        .catch(() => {
-          useAuthStore.getState().logout();
-          setChecking(false);
-        });
-    } else if (isLoaded) {
-      setChecking(false);
-    }
-  }, [isLoaded, user, token, setAuth, setServers]);
-  
-  useEffect(() => {
-    if (!checking) {
+    if (!loading) {
       if (user) {
         router.push('/servers');
       } else {
         router.push('/login');
       }
     }
-  }, [checking, user, router]);
+  }, [loading, user, router]);
 
   return (
     <div className={styles.loading}>

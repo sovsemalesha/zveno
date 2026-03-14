@@ -15,20 +15,8 @@ export default function ServerPage() {
   const params = useParams();
   const serverId = params.serverId as string;
   
-  const { user, logout, isLoaded, loadAuth } = useAuthStore();
+  const { user, logout } = useAuthStore();
   const { currentServer, setCurrentServer, currentChannel, setCurrentChannel } = useAppStore();
-  
-  useEffect(() => {
-    if (!isLoaded) {
-      loadAuth();
-    }
-  }, [isLoaded, loadAuth]);
-  
-  useEffect(() => {
-    if (isLoaded && !user) {
-      router.push('/login');
-    }
-  }, [isLoaded, user, router]);
   
   const [channels, setChannels] = useState<Channel[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -51,29 +39,22 @@ export default function ServerPage() {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const [serverLoading, setServerLoading] = useState(false);
-  const [messagesLoading, setMessagesLoading] = useState(false);
   
   useEffect(() => {
-    if (!isLoaded || !user) return;
+    if (!user) {
+      router.push('/login');
+      return;
+    }
     
     setMessages([]);
     setCurrentChannel(null);
-    setCurrentChannelId(null);
-    setServerLoading(true);
-    loadServer().finally(() => setServerLoading(false));
-  }, [serverId, isLoaded, user]);
+    loadServer();
+  }, [serverId, user]);
 
   useEffect(() => {
     if (currentChannel) {
-      const channelIdToLoad = currentChannel.id;
       setMessages([]);
-      setMessagesLoading(true);
-      loadMessages(channelIdToLoad).finally(() => {
-        if (currentChannelId === channelIdToLoad) {
-          setMessagesLoading(false);
-        }
-      });
+      loadMessages(currentChannel.id);
     }
   }, [currentChannel?.id]);
   
@@ -119,67 +100,14 @@ export default function ServerPage() {
     }
   };
   
-  const handleCreateChannel = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const channel = await api.createChannel(serverId, newChannelName, newChannelType);
-      setChannels([...channels, channel]);
-      setShowCreateChannel(false);
-      setNewChannelName('');
-    } catch (err) {
-      console.error('Failed to create channel:', err);
-    }
+  const handleLogout = () => {
+    logout();
+    router.push('/login');
   };
   
   const handleJoinVoice = async (channel: Channel) => {
     setCurrentChannel(channel);
     setIsInVoice(true);
-    setVoiceParticipants([{ userId: user!.id, username: user!.username }]);
-  };
-  
-  const handleOpenSettings = () => {
-    setServerName(currentServer?.name || '');
-    setInviteCode(currentServer?.inviteCode || '');
-    setShowServerSettings(true);
-  };
-  
-  const handleUpdateServer = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await api.updateServer(serverId, serverName);
-      setCurrentServer({ ...currentServer!, name: serverName });
-      setShowServerSettings(false);
-    } catch (err) {
-      console.error('Failed to update server:', err);
-    }
-  };
-  
-  const handleGenerateInvite = async () => {
-    try {
-      const result = await api.generateInvite(serverId);
-      setInviteCode(result.inviteCode);
-      setShowInviteModal(true);
-    } catch (err) {
-      console.error('Failed to generate invite:', err);
-    }
-  };
-  
-  const handleKickMember = async (memberId: string) => {
-    try {
-      await api.kickMember(serverId, memberId);
-      setMembers(members.filter(m => m.id !== memberId));
-    } catch (err) {
-      console.error('Failed to kick member:', err);
-    }
-  };
-  
-  const handleChangeRole = async (memberId: string, role: 'ADMIN' | 'MODERATOR' | 'USER') => {
-    try {
-      await api.updateMemberRole(serverId, memberId, role);
-      setMembers(members.map(m => m.id === memberId ? { ...m, role } : m));
-    } catch (err) {
-      console.error('Failed to change role:', err);
-    }
   };
   
   const handleLeaveVoice = () => {
@@ -187,25 +115,8 @@ export default function ServerPage() {
     setVoiceParticipants([]);
   };
   
-  const handleToggleMute = () => {
-    setIsMuted(!isMuted);
-  };
-  
-  const handleToggleDeafen = () => {
-    setIsDeafened(!isDeafened);
-  };
-  
   const textChannels = channels.filter(c => c.type === 'TEXT');
   const voiceChannels = channels.filter(c => c.type === 'VOICE');
-  
-  const currentMember = members.find(m => m.userId === user?.id);
-  const isAdmin = currentMember?.role === 'ADMIN';
-  const isModerator = currentMember?.role === 'ADMIN' || currentMember?.role === 'MODERATOR';
-  
-  const handleLogout = () => {
-    logout();
-    router.push('/login');
-  };
   
   if (!currentServer) {
     return <div className={styles.loading}>Loading...</div>;
@@ -213,6 +124,8 @@ export default function ServerPage() {
   
   return (
     <div className={styles.layout}>
+      <ServerSidebar />
+      
       <div className={styles.serverBar}>
         <Link href="/servers" className={styles.serverHeader}>
           {currentServer.icon ? (
@@ -223,117 +136,114 @@ export default function ServerPage() {
           <span>{currentServer.name}</span>
         </Link>
         
-        <button className={styles.settingsBtn} onClick={handleOpenSettings}>⚙️</button>
+        <button className={styles.settingsBtn} onClick={() => setShowServerSettings(true)}>⚙️</button>
         
-        <div className={styles.channels}>
-          {textChannels.length > 0 && (
-            <div className={styles.channelGroup}>
-              <div className={styles.channelGroupHeader}>
-                <span>TEXT CHANNELS</span>
-                <button onClick={() => setShowCreateChannel(true)}>+</button>
-              </div>
-              {textChannels.map(channel => (
-                <div
-                  key={channel.id}
-                  className={`${styles.channel} ${currentChannel?.id === channel.id ? styles.active : ''}`}
-                  onClick={() => setCurrentChannel(channel)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  # {channel.name}
-                </div>
-              ))}
+        {textChannels.length > 0 && (
+          <div className={styles.channelGroup}>
+            <div className={styles.channelGroupHeader}>
+              <span>TEXT CHANNELS</span>
+              <button onClick={() => setShowCreateChannel(true)}>+</button>
             </div>
-          )}
-          
-          {voiceChannels.length > 0 && (
-            <div className={styles.channelGroup}>
-              <div className={styles.channelGroupHeader}>
-                <span>VOICE CHANNELS</span>
+            {textChannels.map(channel => (
+              <div
+                key={channel.id}
+                className={`${styles.channel} ${currentChannel?.id === channel.id ? styles.active : ''}`}
+                onClick={() => setCurrentChannel(channel)}
+                style={{ cursor: 'pointer' }}
+              >
+                # {channel.name}
               </div>
-              {voiceChannels.map(channel => (
-                <div
-                  key={channel.id}
-                  className={`${styles.channel} ${styles.voice} ${currentChannel?.id === channel.id ? styles.active : ''} ${isInVoice && currentChannel?.id === channel.id ? styles.voiceActive : ''}`}
-                  onClick={() => handleJoinVoice(channel)}
-                >
-                  🔊 {channel.name}
-                </div>
-              ))}
+            ))}
+          </div>
+        )}
+        
+        {voiceChannels.length > 0 && (
+          <div className={styles.channelGroup}>
+            <div className={styles.channelGroupHeader}>
+              <span>VOICE CHANNELS</span>
             </div>
-          )}
+            {voiceChannels.map(channel => (
+              <div
+                key={channel.id}
+                className={`${styles.channel} ${styles.voice} ${currentChannel?.id === channel.id ? styles.active : ''} ${isInVoice && currentChannel?.id === channel.id ? styles.voiceActive : ''}`}
+                onClick={() => handleJoinVoice(channel)}
+              >
+                🔊 {channel.name}
+              </div>
+            ))}
+          </div>
+        )}
+        
+        <div className={styles.userPanel}>
+          <div className={styles.userInfo}>
+            <div className={styles.avatar}>{user?.username.charAt(0)}</div>
+            <div>
+              <div className={styles.username}>{user?.username}</div>
+            </div>
+          </div>
+          <button className={styles.logout} onClick={handleLogout}>Logout</button>
         </div>
       </div>
       
       <div className={styles.main}>
-        <div className={styles.chatHeader}>
-          <div className={styles.channelTitle}>
-            {currentChannel && (
-              <>
-                <span>{currentChannel.type === 'TEXT' ? '#' : '🔊'}</span>
-                <span>{currentChannel.name}</span>
-              </>
-            )}
+        {currentChannel && (
+          <div className={styles.chatHeader}>
+            <div className={styles.channelTitle}>
+              <span>{currentChannel.type === 'TEXT' ? '#' : '🔊'}</span>
+              <span>{currentChannel.name}</span>
+            </div>
           </div>
-        </div>
-        
-        <div className={styles.messages} ref={messagesContainerRef}>
-          {serverLoading || messagesLoading ? (
-            <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-secondary)' }}>
-              Loading...
-            </div>
-          ) : !currentChannel ? (
-            <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-secondary)' }}>
-              Select a channel
-            </div>
-          ) : currentChannel?.type === 'TEXT' ? (
-            messages.map(msg => (
-              <div key={msg.id} className={styles.message}>
-                <div className={styles.messageAvatar}>
-                  {msg.user.avatar ? (
-                    <img src={msg.user.avatar} alt="" />
-                  ) : (
-                    <span>{msg.user.username.charAt(0)}</span>
-                  )}
-                </div>
-                <div className={styles.messageContent}>
-                  <div className={styles.messageHeader}>
-                    <span className={styles.messageUsername}>{msg.user.username}</span>
-                    <span className={styles.messageTime}>
-                      {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                  <p>{msg.content}</p>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className={styles.voiceChat}>
-              <p>Voice Channel: {currentChannel?.name}</p>
-              <p className={styles.voiceInfo}>Voice chat coming soon...</p>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-        
-        {currentChannel?.type === 'TEXT' && (
-          <form onSubmit={handleSendMessage} className={styles.messageForm}>
-            <input
-              type="text"
-              placeholder={`Message #${currentChannel?.name}`}
-              value={messageInput}
-              onChange={(e) => setMessageInput(e.target.value)}
-            />
-          </form>
         )}
+        
+        {currentChannel?.type === 'TEXT' ? (
+          <>
+            <div className={styles.messages} ref={messagesContainerRef}>
+              {messages.map(msg => (
+                <div key={msg.id} className={styles.message}>
+                  <div className={styles.messageAvatar}>
+                    {msg.user.avatar ? (
+                      <img src={msg.user.avatar} alt="" />
+                    ) : (
+                      <span>{msg.user.username.charAt(0)}</span>
+                    )}
+                  </div>
+                  <div className={styles.messageContent}>
+                    <div className={styles.messageHeader}>
+                      <span className={styles.messageUsername}>{msg.user.username}</span>
+                      <span className={styles.messageTime}>
+                        {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    <p>{msg.content}</p>
+                  </div>
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
+            
+            <form onSubmit={handleSendMessage} className={styles.messageForm}>
+              <input
+                type="text"
+                placeholder={`Message #${currentChannel?.name}`}
+                value={messageInput}
+                onChange={(e) => setMessageInput(e.target.value)}
+              />
+            </form>
+          </>
+        ) : currentChannel?.type === 'VOICE' ? (
+          <div className={styles.voiceChat}>
+            <p>Voice Channel: {currentChannel?.name}</p>
+          </div>
+        ) : null}
         
         {isInVoice && currentChannel?.type === 'VOICE' && (
           <VoicePanel
-            channelId={currentChannel?.id}
+            channelId={currentChannel.id}
             participants={voiceParticipants}
             isMuted={isMuted}
             isDeafened={isDeafened}
-            onToggleMute={handleToggleMute}
-            onToggleDeafen={handleToggleDeafen}
+            onToggleMute={() => setIsMuted(!isMuted)}
+            onToggleDeafen={() => setIsDeafened(!isDeafened)}
             onLeave={handleLeaveVoice}
           />
         )}
@@ -342,65 +252,45 @@ export default function ServerPage() {
       <div className={styles.members}>
         <div className={styles.membersHeader}>MEMBERS</div>
         {members.map(member => (
-          <div key={member.id} className={styles.member}>
+          <div key={member.id} className={styles.member} onClick={() => setShowMemberMenu(member.id)}>
             <div className={styles.memberAvatar}>
-              {member.user.avatar ? (
-                <img src={member.user.avatar} alt="" />
-              ) : (
-                <span>{member.user.username.charAt(0)}</span>
-              )}
-              <div className={styles.status} />
+              <span>{member.userId.charAt(0)}</span>
             </div>
-            <div className={styles.memberInfo} onClick={() => isModerator && member.userId !== user?.id && setShowMemberMenu(showMemberMenu === member.id ? null : member.id)}>
-              <span className={styles.memberName}>{member.user.username}</span>
+            <div className={styles.memberInfo}>
+              <span className={styles.memberName}>{member.userId.slice(0, 8)}</span>
               <span className={styles.memberRole}>{member.role}</span>
             </div>
-            
-            {showMemberMenu === member.id && isModerator && member.userId !== user?.id && (
-              <div className={styles.memberMenu}>
-                <button onClick={() => { handleChangeRole(member.id, 'MODERATOR'); setShowMemberMenu(null); }}>Make Moderator</button>
-                <button onClick={() => { handleChangeRole(member.id, 'USER'); setShowMemberMenu(null); }}>Remove Moderator</button>
-                <button className={styles.kickBtn} onClick={() => { handleKickMember(member.id); setShowMemberMenu(null); }}>Kick</button>
-              </div>
-            )}
           </div>
         ))}
-        
-        <div className={styles.userPanel}>
-          <div className={styles.userInfo}>
-            <div className={styles.avatar}></div>
-            <div>
-              <p className={styles.username}>{user?.username}</p>
-            </div>
-          </div>
-          <button onClick={handleLogout} className={styles.logout}>Logout</button>
-        </div>
       </div>
       
       {showCreateChannel && (
         <div className={styles.modal}>
           <div className={styles.modalContent}>
             <h2>Create Channel</h2>
-            <form onSubmit={handleCreateChannel}>
-              <input
-                type="text"
-                placeholder="Channel name"
-                value={newChannelName}
-                onChange={(e) => setNewChannelName(e.target.value)}
-                required
-              />
-              <select
-                value={newChannelType}
-                onChange={(e) => setNewChannelType(e.target.value as 'TEXT' | 'VOICE')}
-              >
-                <option value="TEXT">Text Channel</option>
-                <option value="VOICE">Voice Channel</option>
-              </select>
-              <div className={styles.modalActions}>
-                <button type="button" onClick={() => setShowCreateChannel(false)}>Cancel</button>
-                <button type="submit">Create</button>
-              </div>
-            </form>
+            <input
+              type="text"
+              placeholder="Channel name"
+              value={newChannelName}
+              onChange={(e) => setNewChannelName(e.target.value)}
+            />
+            <select value={newChannelType} onChange={(e) => setNewChannelType(e.target.value as 'TEXT' | 'VOICE')}>
+              <option value="TEXT">Text</option>
+              <option value="VOICE">Voice</option>
+            </select>
+            <div className={styles.modalActions}>
+              <button onClick={() => setShowCreateChannel(false)}>Cancel</button>
+              <button onClick={async () => {
+                try {
+                  await api.createChannel(serverId, newChannelName, newChannelType);
+                  loadServer();
+                  setShowCreateChannel(false);
+                  setNewChannelName('');
+                } catch (err) {
+                  console.error('Failed to create channel:', err);
+                }
+              }}>Create</button>
+            </div>
           </div>
         </div>
       )}
@@ -409,22 +299,24 @@ export default function ServerPage() {
         <div className={styles.modal}>
           <div className={styles.modalContent}>
             <h2>Server Settings</h2>
-            <form onSubmit={handleUpdateServer}>
-              <input
-                type="text"
-                placeholder="Server name"
-                value={serverName}
-                onChange={(e) => setServerName(e.target.value)}
-                required
-              />
-              <button type="button" className={styles.inviteBtn} onClick={handleGenerateInvite}>
-                Generate Invite Link
-              </button>
-              <div className={styles.modalActions}>
-                <button type="button" onClick={() => setShowServerSettings(false)}>Cancel</button>
-                <button type="submit">Save</button>
-              </div>
-            </form>
+            <input
+              type="text"
+              placeholder="Server name"
+              value={serverName || currentServer.name}
+              onChange={(e) => setServerName(e.target.value)}
+            />
+            <div className={styles.modalActions}>
+              <button onClick={() => setShowServerSettings(false)}>Cancel</button>
+              <button onClick={async () => {
+                try {
+                  await api.updateServer(serverId, serverName || currentServer.name);
+                  loadServer();
+                  setShowServerSettings(false);
+                } catch (err) {
+                  console.error('Failed to update server:', err);
+                }
+              }}>Save</button>
+            </div>
           </div>
         </div>
       )}

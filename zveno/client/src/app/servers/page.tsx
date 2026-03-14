@@ -9,7 +9,7 @@ import styles from './servers.module.css';
 
 export default function ServersPage() {
   const router = useRouter();
-  const { user, logout, isLoaded, loadAuth, setAuth } = useAuthStore();
+  const { user, logout } = useAuthStore();
   const { servers, setServers, setCurrentServer, currentServer } = useAppStore();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
@@ -17,31 +17,22 @@ export default function ServersPage() {
   const [inviteCode, setInviteCode] = useState('');
   
   useEffect(() => {
-    if (!isLoaded) {
-      loadAuth();
-    }
-  }, [isLoaded, loadAuth]);
-  
-  useEffect(() => {
-    if (isLoaded && !user) {
+    if (!user) {
       router.push('/login');
+      return;
     }
-  }, [isLoaded, user, router]);
-  
-  useEffect(() => {
-    if (!user) return;
-    
-    const loadServers = async () => {
-      try {
-        const data = await api.getServers();
-        setServers(data);
-      } catch (err) {
-        console.error('Failed to load servers:', err);
-      }
-    };
     
     loadServers();
-  }, [user, setServers]);
+  }, [user]);
+  
+  const loadServers = async () => {
+    try {
+      const data = await api.getServers();
+      setServers(data);
+    } catch (err) {
+      console.error('Failed to load servers:', err);
+    }
+  };
   
   const handleCreateServer = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,61 +68,73 @@ export default function ServersPage() {
   
   return (
     <div className={styles.layout}>
-      <ServerSidebar 
-        servers={servers} 
-        currentServer={currentServer}
-        onServerSelect={(server) => {
-          setCurrentServer(server);
-          router.push(`/servers/${server.id}`);
-        }}
-        onCreateServer={() => setShowCreateModal(true)}
-        onJoinServer={() => setShowJoinModal(true)}
-      />
+      <ServerSidebar />
       
-      <main className={styles.main}>
+      <div className={styles.main}>
         <div className={styles.content}>
-          <h1>Welcome to Zveno</h1>
-          <p>Select a server from the sidebar or create a new one</p>
+          <h1 className="glitch" data-text="ZVENO">ZVENO</h1>
+          <p>Select a server or create a new one</p>
           
           <div className={styles.actions}>
-            <button onClick={() => setShowCreateModal(true)} className={styles.button}>
-              Create Server
-            </button>
-            <button onClick={() => setShowJoinModal(true)} className={styles.secondary}>
-              Join Server
-            </button>
+            <button onClick={() => setShowCreateModal(true)}>+ Create Server</button>
+            <button onClick={() => setShowJoinModal(true)} className={styles.secondary}>Join Server</button>
+          </div>
+          
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '32px' }}>
+            {servers.map(server => (
+              <div
+                key={server.id}
+                onClick={() => {
+                  setCurrentServer(server);
+                  router.push(`/servers/${server.id}`);
+                }}
+                style={{
+                  width: '120px',
+                  height: '120px',
+                  background: 'var(--bg-secondary)',
+                  border: '2px solid var(--accent)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  borderRadius: '4px',
+                }}
+              >
+                <span style={{ fontSize: '24px', marginBottom: '8px' }}>
+                  {server.icon ? <img src={server.icon} alt="" style={{ width: '40px', height: '40px', borderRadius: '50%' }} /> : server.name.charAt(0)}
+                </span>
+                <span style={{ fontSize: '12px', color: 'var(--accent-cyan)' }}>{server.name}</span>
+              </div>
+            ))}
           </div>
         </div>
-        
-        <div className={styles.userPanel}>
-          <div className={styles.userInfo}>
-            <div className={styles.avatar}></div>
-            <div>
-              <p className={styles.username}>{user?.username}</p>
-              <p className={styles.userId}>#{user?.id.slice(0, 8)}</p>
-            </div>
+      </div>
+      
+      <div className={styles.userPanel}>
+        <div className={styles.userInfo}>
+          <div className={styles.avatar}>{user?.username.charAt(0)}</div>
+          <div>
+            <div className={styles.username}>{user?.username}</div>
           </div>
-          <button onClick={handleLogout} className={styles.logout}>Logout</button>
         </div>
-      </main>
+        <button className={styles.logout} onClick={handleLogout}>Logout</button>
+      </div>
       
       {showCreateModal && (
         <div className={styles.modal}>
           <div className={styles.modalContent}>
             <h2>Create Server</h2>
-            <form onSubmit={handleCreateServer}>
-              <input
-                type="text"
-                placeholder="Server name"
-                value={newServerName}
-                onChange={(e) => setNewServerName(e.target.value)}
-                required
-              />
-              <div className={styles.modalActions}>
-                <button type="button" onClick={() => setShowCreateModal(false)}>Cancel</button>
-                <button type="submit">Create</button>
-              </div>
-            </form>
+            <input
+              type="text"
+              placeholder="Server name"
+              value={newServerName}
+              onChange={(e) => setNewServerName(e.target.value)}
+            />
+            <div className={styles.modalActions}>
+              <button onClick={() => setShowCreateModal(false)}>Cancel</button>
+              <button onClick={handleCreateServer}>Create</button>
+            </div>
           </div>
         </div>
       )}
@@ -140,19 +143,16 @@ export default function ServersPage() {
         <div className={styles.modal}>
           <div className={styles.modalContent}>
             <h2>Join Server</h2>
-            <form onSubmit={handleJoinServer}>
-              <input
-                type="text"
-                placeholder="Invite code"
-                value={inviteCode}
-                onChange={(e) => setInviteCode(e.target.value)}
-                required
-              />
-              <div className={styles.modalActions}>
-                <button type="button" onClick={() => setShowJoinModal(false)}>Cancel</button>
-                <button type="submit">Join</button>
-              </div>
-            </form>
+            <input
+              type="text"
+              placeholder="Invite code"
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value)}
+            />
+            <div className={styles.modalActions}>
+              <button onClick={() => setShowJoinModal(false)}>Cancel</button>
+              <button onClick={handleJoinServer}>Join</button>
+            </div>
           </div>
         </div>
       )}
