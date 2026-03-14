@@ -9,7 +9,7 @@ import styles from './servers.module.css';
 
 export default function ServersPage() {
   const router = useRouter();
-  const { user, logout } = useAuthStore();
+  const { user, logout, isLoaded, loadAuth, setAuth } = useAuthStore();
   const { servers, setServers, setCurrentServer, currentServer } = useAppStore();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
@@ -17,10 +17,19 @@ export default function ServersPage() {
   const [inviteCode, setInviteCode] = useState('');
   
   useEffect(() => {
-    if (!user) {
-      router.push('/login');
-      return;
+    if (!isLoaded) {
+      loadAuth();
     }
+  }, [isLoaded, loadAuth]);
+  
+  useEffect(() => {
+    if (isLoaded && !user) {
+      router.push('/login');
+    }
+  }, [isLoaded, user, router]);
+  
+  useEffect(() => {
+    if (!user) return;
     
     const loadServers = async () => {
       try {
@@ -32,7 +41,7 @@ export default function ServersPage() {
     };
     
     loadServers();
-  }, [user, router, setServers]);
+  }, [user, setServers]);
   
   const handleCreateServer = async (e: React.FormEvent) => {
     e.preventDefault();

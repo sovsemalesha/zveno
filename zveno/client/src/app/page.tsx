@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore, useAppStore } from '@/store';
 import { api } from '@/lib/api';
@@ -8,38 +8,44 @@ import styles from './page.module.css';
 
 export default function Home() {
   const router = useRouter();
-  const { user, token } = useAuthStore();
+  const { user, token, isLoaded, loadAuth, setAuth } = useAuthStore();
   const { setServers } = useAppStore();
+  const [checking, setChecking] = useState(true);
   
   useEffect(() => {
-    const init = async () => {
-      const savedToken = localStorage.getItem('token');
-      
-      if (savedToken && !token) {
-        api.setToken(savedToken);
-        try {
-          const userData = await api.getMe();
-          useAuthStore.getState().setAuth(userData, savedToken);
-          const servers = await api.getServers();
+    loadAuth();
+  }, []);
+  
+  useEffect(() => {
+    if (isLoaded && !user && token) {
+      api.setToken(token);
+      api.getMe()
+        .then((userData) => {
+          setAuth(userData, token);
+          return api.getServers();
+        })
+        .then((servers) => {
           setServers(servers);
-        } catch {
-          localStorage.removeItem('token');
-        }
-      }
-    };
-    
-    if (!user && token) {
-      init();
+          setChecking(false);
+        })
+        .catch(() => {
+          useAuthStore.getState().logout();
+          setChecking(false);
+        });
+    } else if (isLoaded) {
+      setChecking(false);
     }
-  }, [user, token, setServers]);
+  }, [isLoaded, user, token, setAuth, setServers]);
   
   useEffect(() => {
-    if (user) {
-      router.push('/servers');
-    } else if (token === null) {
-      router.push('/login');
+    if (!checking) {
+      if (user) {
+        router.push('/servers');
+      } else {
+        router.push('/login');
+      }
     }
-  }, [user, token, router]);
+  }, [checking, user, router]);
 
   return (
     <div className={styles.loading}>

@@ -1,38 +1,47 @@
 import { create } from 'zustand';
-import { User, Server, Channel, Message } from '@/types';
+import { User, Server, Channel } from '@/types';
 
 interface AuthState {
   user: User | null;
   token: string | null;
+  isLoaded: boolean;
   setAuth: (user: User, token: string) => void;
   logout: () => void;
+  loadAuth: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   token: null,
+  isLoaded: false,
   setAuth: (user, token) => {
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(user));
-    set({ user, token });
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+    }
+    set({ user, token, isLoaded: true });
   },
   logout: () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    set({ user: null, token: null });
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    }
+    set({ user: null, token: null, isLoaded: true });
+  },
+  loadAuth: () => {
+    if (typeof window !== 'undefined') {
+      const savedToken = localStorage.getItem('token');
+      const savedUser = localStorage.getItem('user');
+      if (savedToken && savedUser) {
+        set({ token: savedToken, user: JSON.parse(savedUser), isLoaded: true });
+      } else {
+        set({ isLoaded: true });
+      }
+    } else {
+      set({ isLoaded: true });
+    }
   },
 }));
-
-if (typeof window !== 'undefined') {
-  const savedToken = localStorage.getItem('token');
-  const savedUser = localStorage.getItem('user');
-  if (savedToken && savedUser) {
-    useAuthStore.setState({ 
-      token: savedToken, 
-      user: JSON.parse(savedUser) 
-    });
-  }
-}
 
 interface AppState {
   servers: Server[];

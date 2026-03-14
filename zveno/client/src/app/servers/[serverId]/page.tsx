@@ -15,8 +15,20 @@ export default function ServerPage() {
   const params = useParams();
   const serverId = params.serverId as string;
   
-  const { user, logout } = useAuthStore();
+  const { user, logout, isLoaded, loadAuth } = useAuthStore();
   const { currentServer, setCurrentServer, currentChannel, setCurrentChannel } = useAppStore();
+  
+  useEffect(() => {
+    if (!isLoaded) {
+      loadAuth();
+    }
+  }, [isLoaded, loadAuth]);
+  
+  useEffect(() => {
+    if (isLoaded && !user) {
+      router.push('/login');
+    }
+  }, [isLoaded, user, router]);
   
   const [channels, setChannels] = useState<Channel[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -43,16 +55,13 @@ export default function ServerPage() {
   const [messagesLoading, setMessagesLoading] = useState(false);
   
   useEffect(() => {
-    if (!user) {
-      router.push('/login');
-      return;
-    }
+    if (!isLoaded || !user) return;
     
     setMessages([]);
     setCurrentChannel(null);
     setServerLoading(true);
     loadServer().finally(() => setServerLoading(false));
-  }, [serverId, user]);
+  }, [serverId, isLoaded, user]);
 
   useEffect(() => {
     if (currentChannel) {
