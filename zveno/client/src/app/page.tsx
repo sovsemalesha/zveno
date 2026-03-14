@@ -14,26 +14,20 @@ export default function Home() {
   
   useEffect(() => {
     const init = async () => {
-      console.log('Initializing...');
       const savedToken = localStorage.getItem('token');
-      console.log('Saved token:', savedToken);
       
       if (savedToken) {
         api.setToken(savedToken);
         try {
-          console.log('Fetching user data...');
           const userData = await api.getMe();
-          console.log('User data:', userData);
           setAuth(userData, savedToken);
           const servers = await api.getServers();
           setServers(servers);
-        } catch (err) {
-          console.error('Init error:', err);
+        } catch {
           localStorage.removeItem('token');
         }
       }
       
-      console.log('Setting loading to false');
       setLoading(false);
     };
     
@@ -41,12 +35,10 @@ export default function Home() {
   }, [setAuth, setServers]);
   
   useEffect(() => {
-    if (!loading) {
-      if (!user && !token) {
-        router.push('/login');
-      } else if (user) {
-        router.push('/servers');
-      }
+    if (!loading && !user && !token) {
+      router.push('/login');
+    } else if (!loading && user) {
+      router.push('/servers');
     }
   }, [loading, user, token, router]);
   
