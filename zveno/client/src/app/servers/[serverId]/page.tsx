@@ -214,14 +214,14 @@ export default function ServerPage() {
                 <button onClick={() => setShowCreateChannel(true)}>+</button>
               </div>
               {textChannels.map(channel => (
-                <Link
+                <div
                   key={channel.id}
-                  href={`/servers/${serverId}/channels/${channel.id}`}
                   className={`${styles.channel} ${currentChannel?.id === channel.id ? styles.active : ''}`}
                   onClick={() => setCurrentChannel(channel)}
+                  style={{ cursor: 'pointer' }}
                 >
                   # {channel.name}
-                </Link>
+                </div>
               ))}
             </div>
           )}
