@@ -12,6 +12,11 @@ COPY prisma ./prisma
 RUN npx prisma generate
 RUN npm run build
 
+RUN echo '#!/bin/sh' > /entrypoint.sh && \
+    echo 'npx prisma db push --force-reset' >> /entrypoint.sh && \
+    echo 'exec node dist/index.js' >> /entrypoint.sh && \
+    chmod +x /entrypoint.sh
+
 EXPOSE 3001
 
-CMD ["sh", "-c", "echo 'DATABASE_URL: $DATABASE_URL' && npx prisma db push --force-reset && node dist/index.js"]
+ENTRYPOINT ["/entrypoint.sh"]
