@@ -50,7 +50,7 @@ async function start() {
     console.log('Running database migrations...');
     const { execSync } = require('child_process');
     try {
-      execSync('npx prisma db push --force-reset', { stdio: 'inherit' });
+      execSync('npx prisma db push', { stdio: 'inherit' });
       console.log('✅ Database schema pushed');
     } catch (e) {
       console.log('DB push failed, trying to continue...');

@@ -51,6 +51,7 @@ export default function ServerPage() {
   
   useEffect(() => {
     if (currentChannel) {
+      setMessages([]);
       loadMessages(currentChannel.id);
     }
   }, [currentChannel]);

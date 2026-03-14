@@ -25,15 +25,16 @@ export default function ChannelPage() {
     }
     
     if (currentChannel?.id !== channelId) {
+      setMessages([]);
       loadChannel();
     }
   }, [serverId, channelId]);
-  
+
   useEffect(() => {
-    if (currentChannel) {
+    if (currentChannel && currentChannel.id === channelId) {
       loadMessages();
     }
-  }, [currentChannel?.id]);
+  }, [currentChannel?.id, channelId]);
   
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
