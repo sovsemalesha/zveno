@@ -95,7 +95,15 @@ class VoiceService {
     const consumer = await transport.consume({
       producerId,
       rtpCapabilities: {
-        codecs: [{ mimeType: 'audio/opus' }],
+        codecs: [
+          {
+            kind: 'audio',
+            mimeType: 'audio/opus',
+            preferredPayloadType: 111,
+            clockRate: 48000,
+            channels: 2,
+          }
+        ],
         headerExtensions: [],
       },
     });
