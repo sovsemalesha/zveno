@@ -46,6 +46,8 @@ export default function ServerPage() {
       return;
     }
     
+    setMessages([]);
+    setCurrentChannel(null);
     loadServer();
   }, [serverId, user]);
   
