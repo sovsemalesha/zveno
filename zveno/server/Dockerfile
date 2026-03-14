@@ -14,4 +14,4 @@ RUN npm run build
 
 EXPOSE 3001
 
-CMD ["sh", "-c", "npx prisma db push && node dist/index.js"]
+CMD ["sh", "-c", "echo 'DATABASE_URL: $DATABASE_URL' && npx prisma db push --force-reset && node dist/index.js"]
