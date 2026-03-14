@@ -39,9 +39,9 @@ export default function RegisterPage() {
   
   return (
     <div className={styles.container}>
-      <div className={styles.card}>
-        <h1>Create an account</h1>
-        <p className={styles.subtitle}>Join Zveno today!</p>
+      <div className={styles.card} data-text="ZVENO">
+        <h1 className="glitch" data-text="REGISTER">REGISTER</h1>
+        <p className={styles.subtitle}>// NEW USER DETECTED</p>
         
         <form onSubmit={handleSubmit}>
           <div className={styles.field}>
@@ -79,12 +79,12 @@ export default function RegisterPage() {
           {error && <p className={styles.error}>{error}</p>}
           
           <button type="submit" className={styles.button} disabled={loading}>
-            {loading ? 'Creating account...' : 'Register'}
+            {loading ? '> INITIALIZING...' : '> REGISTER'}
           </button>
         </form>
         
         <p className={styles.footer}>
-          Already have an account? <Link href="/login">Login</Link>
+          // ALREADY REGISTERED? <Link href="/login">LOGIN</Link>
         </p>
       </div>
     </div>

@@ -8,6 +8,10 @@
   align-items: center;
   justify-content: center;
   height: 100vh;
+  font-family: var(--font-pixel);
+  font-size: 12px;
+  color: var(--accent);
+  animation: flicker 0.5s infinite;
 }
 
 .serverBar {
@@ -15,6 +19,7 @@
   background: var(--bg-secondary);
   display: flex;
   flex-direction: column;
+  border-right: 2px solid var(--accent);
 }
 
 .serverHeader {
@@ -24,13 +29,15 @@
   padding: 12px 16px;
   margin: 12px 8px;
   background: var(--bg-tertiary);
-  border-radius: 8px;
+  border: 2px solid var(--text-muted);
   font-weight: 600;
-  transition: background 0.2s;
+  transition: all 0.1s;
 }
 
 .serverHeader:hover {
-  background: #3f4147;
+  background: var(--accent);
+  color: var(--bg-primary);
+  border-color: var(--accent);
 }
 
 .settingsBtn {
@@ -40,7 +47,7 @@
   color: var(--text-secondary);
   font-size: 16px;
   padding: 4px 8px;
-  border-radius: 4px;
+  border: none;
   opacity: 0;
 }
 
@@ -53,20 +60,21 @@
 }
 
 .settingsBtn:hover {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
+  color: var(--accent-cyan);
 }
 
 .serverHeader img,
 .serverHeader span:first-child {
   width: 32px;
   height: 32px;
-  border-radius: 50%;
+  border-radius: 4px;
   background: var(--accent);
+  border: 2px solid var(--accent-cyan);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-family: var(--font-pixel);
+  font-size: 8px;
 }
 
 .channels {
@@ -86,40 +94,46 @@
   padding: 8px 8px;
   font-size: 12px;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--accent);
   text-transform: uppercase;
+  font-family: var(--font-pixel);
+  letter-spacing: 1px;
 }
 
 .channelGroupHeader button {
   background: none;
-  color: var(--text-secondary);
+  color: var(--accent);
   font-size: 18px;
   padding: 0 4px;
+  border: none;
 }
 
 .channelGroupHeader button:hover {
-  color: var(--text-primary);
+  color: var(--accent-cyan);
+  animation: glitch 0.2s;
 }
 
 .channel {
   display: block;
-  padding: 6px 8px;
+  padding: 8px 12px;
   margin: 2px 0;
-  border-radius: 4px;
+  border: 1px solid transparent;
   color: var(--text-secondary);
   font-size: 14px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.1s;
 }
 
 .channel:hover {
   background: var(--bg-tertiary);
-  color: var(--text-primary);
+  border-color: var(--accent);
+  color: var(--accent-cyan);
 }
 
 .channel.active {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
+  background: var(--accent);
+  color: var(--bg-primary);
+  border-color: var(--accent-cyan);
 }
 
 .channel.voice {
@@ -128,7 +142,8 @@
 
 .channel.voiceActive {
   background: var(--success) !important;
-  color: white !important;
+  color: var(--bg-primary) !important;
+  border-color: var(--accent-cyan) !important;
 }
 
 .main {
@@ -144,8 +159,8 @@
   padding: 0 16px;
   display: flex;
   align-items: center;
-  border-bottom: 1px solid var(--bg-tertiary);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  border-bottom: 2px solid var(--accent);
+  background: var(--bg-secondary);
 }
 
 .channelTitle {
@@ -156,7 +171,9 @@
 }
 
 .channelTitle span:first-child {
-  color: var(--text-secondary);
+  color: var(--accent);
+  font-family: var(--font-pixel);
+  font-size: 10px;
 }
 
 .messages {
@@ -171,13 +188,21 @@
 .message {
   display: flex;
   gap: 16px;
+  padding: 8px;
+  border: 1px solid transparent;
+}
+
+.message:hover {
+  border-color: var(--text-muted);
+  background: var(--bg-secondary);
 }
 
 .messageAvatar {
   width: 40px;
   height: 40px;
-  border-radius: 50%;
+  border-radius: 4px;
   background: var(--accent);
+  border: 2px solid var(--accent-cyan);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -192,8 +217,9 @@
 }
 
 .messageAvatar span {
-  font-weight: 600;
-  color: white;
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  color: var(--bg-primary);
 }
 
 .messageContent {
@@ -210,12 +236,12 @@
 
 .messageUsername {
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--accent-cyan);
 }
 
 .messageTime {
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--text-muted);
 }
 
 .messageContent p {
@@ -230,14 +256,15 @@
 .messageForm input {
   width: 100%;
   padding: 12px 16px;
-  background: var(--bg-tertiary);
-  border: none;
-  border-radius: 8px;
+  background: var(--bg-secondary);
+  border: 2px solid var(--text-muted);
   color: var(--text-primary);
   font-size: 14px;
 }
 
 .messageForm input:focus {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
   outline: none;
 }
 
@@ -259,14 +286,17 @@
   background: var(--bg-secondary);
   display: flex;
   flex-direction: column;
+  border-left: 2px solid var(--accent);
 }
 
 .membersHeader {
   padding: 16px;
   font-size: 12px;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--accent);
   text-transform: uppercase;
+  font-family: var(--font-pixel);
+  letter-spacing: 1px;
 }
 
 .member {
@@ -275,18 +305,21 @@
   gap: 12px;
   padding: 8px 16px;
   cursor: pointer;
+  border: 1px solid transparent;
 }
 
 .member:hover {
   background: var(--bg-tertiary);
+  border-color: var(--accent);
 }
 
 .memberAvatar {
   position: relative;
   width: 32px;
   height: 32px;
-  border-radius: 50%;
+  border-radius: 4px;
   background: var(--accent);
+  border: 2px solid var(--accent-cyan);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -300,19 +333,18 @@
 }
 
 .memberAvatar span {
-  font-size: 12px;
-  font-weight: 600;
-  color: white;
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  color: var(--bg-primary);
 }
 
 .status {
   position: absolute;
-  bottom: 0;
-  right: 0;
+  bottom: -2px;
+  right: -2px;
   width: 10px;
   height: 10px;
   background: var(--success);
-  border-radius: 50%;
   border: 2px solid var(--bg-secondary);
 }
 
@@ -328,27 +360,29 @@
   position: absolute;
   right: 8px;
   top: 100%;
-  background: var(--bg-tertiary);
-  border-radius: 4px;
+  background: var(--bg-card);
+  border: 2px solid var(--accent);
   padding: 4px;
   z-index: 10;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  min-width: 120px;
+  min-width: 140px;
+  box-shadow: 0 0 15px rgba(255, 0, 255, 0.3);
 }
 
 .memberMenu button {
   background: transparent;
   color: var(--text-primary);
-  padding: 6px 8px;
+  padding: 8px 12px;
   text-align: left;
   font-size: 12px;
-  border-radius: 2px;
+  border: 1px solid transparent;
 }
 
 .memberMenu button:hover {
-  background: var(--bg-secondary);
+  background: var(--accent);
+  color: var(--bg-primary);
 }
 
 .memberMenu .kickBtn {
@@ -358,18 +392,21 @@
 .memberName {
   font-weight: 600;
   font-size: 14px;
+  color: var(--accent-cyan);
 }
 
 .memberRole {
   font-size: 12px;
-  color: var(--text-secondary);
-  text-transform: capitalize;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-family: var(--font-pixel);
 }
 
 .userPanel {
   margin-top: auto;
   padding: 8px;
   background: var(--bg-tertiary);
+  border-top: 2px solid var(--accent);
 }
 
 .userPanel .userInfo {
@@ -382,33 +419,44 @@
 .userPanel .avatar {
   width: 32px;
   height: 32px;
-  border-radius: 50%;
+  border-radius: 4px;
   background: var(--accent);
+  border: 2px solid var(--accent-cyan);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-pixel);
+  font-size: 8px;
 }
 
 .userPanel .username {
   font-weight: 600;
   font-size: 14px;
+  color: var(--accent-cyan);
 }
 
 .logout {
   width: 100%;
   padding: 8px;
-  background: var(--danger);
-  color: white;
-  border-radius: 4px;
+  background: transparent;
+  color: var(--danger);
+  border: 2px solid var(--danger);
   font-size: 12px;
   margin-top: 4px;
+  font-family: var(--font-pixel);
+  letter-spacing: 1px;
 }
 
 .logout:hover {
-  background: #c42f33;
+  background: var(--danger);
+  color: var(--bg-primary);
+  box-shadow: 0 0 15px var(--danger);
 }
 
 .modal {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.9);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -416,26 +464,38 @@
 }
 
 .modalContent {
-  background: var(--bg-secondary);
-  padding: 24px;
-  border-radius: 8px;
+  background: var(--bg-card);
+  padding: 32px;
+  border: 2px solid var(--accent);
   width: 100%;
-  max-width: 400px;
+  max-width: 440px;
+  box-shadow: 0 0 30px rgba(255, 0, 255, 0.3);
 }
 
 .modalContent h2 {
-  margin-bottom: 16px;
+  font-family: var(--font-pixel);
+  font-size: 12px;
+  margin-bottom: 24px;
+  color: var(--accent);
+  letter-spacing: 2px;
 }
 
 .modalContent input,
 .modalContent select {
   width: 100%;
-  padding: 10px;
-  background: var(--bg-tertiary);
-  border: none;
-  border-radius: 4px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border: 2px solid var(--text-muted);
   color: var(--text-primary);
-  margin-bottom: 16px;
+  margin-bottom: 20px;
+  font-size: 16px;
+}
+
+.modalContent input:focus,
+.modalContent select:focus {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+  outline: none;
 }
 
 .modalActions {
@@ -445,42 +505,62 @@
 }
 
 .modalActions button {
-  padding: 8px 16px;
-  border-radius: 4px;
+  padding: 10px 20px;
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  letter-spacing: 1px;
 }
 
 .modalActions button:first-child {
   background: transparent;
   color: var(--text-secondary);
+  border-color: var(--text-muted);
+}
+
+.modalActions button:first-child:hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
 }
 
 .modalActions button:last-child {
   background: var(--accent);
-  color: white;
+  color: var(--bg-primary);
+  border-color: var(--accent);
+}
+
+.modalActions button:last-child:hover {
+  box-shadow: 0 0 15px var(--accent);
 }
 
 .inviteBtn {
   width: 100%;
-  padding: 10px;
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  border-radius: 4px;
+  padding: 12px;
+  background: transparent;
+  color: var(--accent-cyan);
+  border: 2px solid var(--accent-cyan);
   margin-bottom: 16px;
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  letter-spacing: 1px;
 }
 
 .inviteBtn:hover {
-  background: #3f4147;
+  background: var(--accent-cyan);
+  color: var(--bg-primary);
+  box-shadow: 0 0 15px var(--accent-cyan);
 }
 
 .inviteCode {
-  font-size: 24px;
-  font-weight: 600;
+  font-family: var(--font-pixel);
+  font-size: 16px;
   text-align: center;
   padding: 16px;
-  background: var(--bg-tertiary);
-  border-radius: 8px;
+  background: var(--bg-secondary);
+  border: 2px solid var(--accent);
   margin-bottom: 8px;
-  letter-spacing: 2px;
+  letter-spacing: 4px;
+  color: var(--accent-cyan);
+  animation: pulse-glow 2s infinite;
 }
 
 .inviteHint {

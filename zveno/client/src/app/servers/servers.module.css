@@ -16,45 +16,70 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: 24px;
+  position: relative;
+}
+
+.content::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(255, 0, 255, 0.08) 0%, transparent 70%);
+  pointer-events: none;
 }
 
 .content h1 {
-  font-size: 32px;
+  font-family: var(--font-pixel);
+  font-size: 24px;
+  color: var(--accent);
+  text-shadow: 3px 3px 0 var(--accent-cyan);
+  letter-spacing: 4px;
 }
 
 .content p {
   color: var(--text-secondary);
+  font-size: 18px;
 }
 
 .actions {
   display: flex;
-  gap: 12px;
-  margin-top: 24px;
+  gap: 16px;
+  margin-top: 32px;
 }
 
 .button {
-  padding: 12px 24px;
+  padding: 14px 28px;
   background: var(--accent);
-  color: white;
-  border-radius: 4px;
-  font-weight: 600;
+  color: var(--bg-primary);
+  font-family: var(--font-pixel);
+  font-size: 10px;
+  border: 2px solid var(--accent);
+  letter-spacing: 1px;
 }
 
 .button:hover {
-  background: var(--accent-hover);
+  background: var(--accent-cyan);
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 20px var(--accent-cyan);
 }
 
 .secondary {
-  padding: 12px 24px;
-  background: var(--bg-tertiary);
+  padding: 14px 28px;
+  background: transparent;
   color: var(--text-primary);
-  border-radius: 4px;
-  font-weight: 600;
+  border: 2px solid var(--text-muted);
+  font-family: var(--font-pixel);
+  font-size: 10px;
+  letter-spacing: 1px;
 }
 
 .secondary:hover {
-  background: #3f4147;
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
 }
 
 .userPanel {
@@ -64,6 +89,7 @@
   padding: 8px 16px;
   background: var(--bg-secondary);
   height: 52px;
+  border-top: 2px solid var(--accent);
 }
 
 .userInfo {
@@ -76,59 +102,78 @@
   width: 32px;
   height: 32px;
   background: var(--accent);
-  border-radius: 50%;
+  border: 2px solid var(--accent-cyan);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-pixel);
+  font-size: 8px;
 }
 
 .username {
   font-weight: 600;
   font-size: 14px;
+  color: var(--accent-cyan);
 }
 
 .userId {
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--text-muted);
 }
 
 .logout {
-  padding: 6px 12px;
+  padding: 8px 16px;
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--danger);
   font-size: 12px;
+  border: 1px solid var(--danger);
 }
 
 .logout:hover {
-  color: var(--text-primary);
+  background: var(--danger);
+  color: var(--bg-primary);
 }
 
 .modal {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.85);
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 100;
 }
 
 .modalContent {
-  background: var(--bg-secondary);
-  padding: 24px;
-  border-radius: 8px;
+  background: var(--bg-card);
+  padding: 32px;
+  border: 2px solid var(--accent);
   width: 100%;
-  max-width: 400px;
+  max-width: 440px;
+  box-shadow: 0 0 30px rgba(255, 0, 255, 0.3);
 }
 
 .modalContent h2 {
-  margin-bottom: 16px;
+  font-family: var(--font-pixel);
+  font-size: 12px;
+  margin-bottom: 24px;
+  color: var(--accent);
+  letter-spacing: 2px;
 }
 
 .modalContent input {
   width: 100%;
-  padding: 10px;
-  background: var(--bg-tertiary);
-  border: none;
-  border-radius: 4px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border: 2px solid var(--text-muted);
   color: var(--text-primary);
-  margin-bottom: 16px;
+  margin-bottom: 20px;
+  font-size: 16px;
+}
+
+.modalContent input:focus {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
 }
 
 .modalActions {
@@ -138,16 +183,29 @@
 }
 
 .modalActions button {
-  padding: 8px 16px;
-  border-radius: 4px;
+  padding: 10px 20px;
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  letter-spacing: 1px;
 }
 
 .modalActions button:first-child {
   background: transparent;
   color: var(--text-secondary);
+  border-color: var(--text-muted);
+}
+
+.modalActions button:first-child:hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
 }
 
 .modalActions button:last-child {
-  background: var(--accent);
-  color: white;
+  background: var(--success);
+  color: var(--bg-primary);
+  border-color: var(--success);
+}
+
+.modalActions button:last-child:hover {
+  box-shadow: 0 0 15px var(--success);
 }

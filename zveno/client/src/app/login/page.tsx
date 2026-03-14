@@ -38,9 +38,9 @@ export default function LoginPage() {
   
   return (
     <div className={styles.container}>
-      <div className={styles.card}>
-        <h1>Welcome back</h1>
-        <p className={styles.subtitle}>We're so excited to see you again!</p>
+      <div className={styles.card} data-text="ZVENO">
+        <h1 className="glitch" data-text="ZVENO">ZVENO</h1>
+        <p className={styles.subtitle}>// SYSTEM ACCESS REQUIRED</p>
         
         <form onSubmit={handleSubmit}>
           <div className={styles.field}>
@@ -66,12 +66,12 @@ export default function LoginPage() {
           {error && <p className={styles.error}>{error}</p>}
           
           <button type="submit" className={styles.button} disabled={loading}>
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? '> ACCESSING...' : '> LOGIN'}
           </button>
         </form>
         
         <p className={styles.footer}>
-          Need an account? <Link href="/register">Register</Link>
+          // NO ACCOUNT? <Link href="/register">REGISTER</Link>
         </p>
       </div>
     </div>

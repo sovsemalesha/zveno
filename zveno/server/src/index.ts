@@ -17,18 +17,29 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    origin: process.env.CLIENT_URL ? [process.env.CLIENT_URL, process.env.CLIENT_URL.replace('https://', 'http://')] : ['http://localhost:3000', 'http://localhost:3001'],
     credentials: true,
   },
 });
 
-app.use(cors());
+app.use(cors({
+  origin: process.env.CLIENT_URL ? [process.env.CLIENT_URL, process.env.CLIENT_URL.replace('https://', 'http://')] : ['http://localhost:3000', 'http://localhost:3001'],
+  credentials: true,
+}));
 app.use(express.json());
 
 app.use('/api/auth', authRouter);
 app.use('/api/servers', serverRouter);
 app.use('/api/channels', channelRouter);
 app.use('/api/messages', messageRouter);
+
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', message: 'Zveno API running' });
+});
+
+app.get('/health', (req, res) => {
+  res.json({ status: 'healthy' });
+});
 
 setupSocket(io);
 

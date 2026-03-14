@@ -1,11 +1,11 @@
-FROM node:20-alpine
+FROM node:20
 
 WORKDIR /app
 
-COPY zveno/server/package*.json ./package*.json
+COPY zveno/server/package*.json ./
 RUN npm ci
 
-COPY zveno/server/tsconfig.json ./tsconfig.json
+COPY zveno/server/tsconfig.json ./
 COPY zveno/server/src ./src
 COPY zveno/server/prisma ./prisma
 
