@@ -7,23 +7,29 @@ const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'zveno-secret-key';
 
 router.post('/register', async (req: Request, res: Response) => {
+  console.log('Register request:', req.body);
   try {
     const { email, username, password } = req.body;
     
     if (!email || !username || !password) {
+      console.log('Missing fields');
       return res.status(400).json({ error: 'Missing fields' });
     }
     
+    console.log('Checking existing user...');
     const existingUser = await prisma.user.findFirst({
       where: { OR: [{ email }, { username }] },
     });
     
     if (existingUser) {
+      console.log('User exists');
       return res.status(400).json({ error: 'User already exists' });
     }
     
+    console.log('Hashing password...');
     const hashedPassword = await bcrypt.hash(password, 10);
     
+    console.log('Creating user...');
     const user = await prisma.user.create({
       data: { email, username, password: hashedPassword },
     });
