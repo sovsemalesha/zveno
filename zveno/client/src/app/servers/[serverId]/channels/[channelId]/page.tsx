@@ -12,7 +12,7 @@ export default function ChannelPage() {
   const channelId = params.channelId as string;
   const serverId = params.serverId as string;
   
-  const { currentServer, setCurrentServer, currentChannel, setCurrentChannel, user } = useAppStore();
+  const { currentServer, setCurrentServer, currentChannel, setCurrentChannel } = useAppStore();
   
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageInput, setMessageInput] = useState('');
